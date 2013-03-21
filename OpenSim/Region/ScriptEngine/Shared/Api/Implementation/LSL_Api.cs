@@ -7820,10 +7820,13 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
             ILandObject land = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
 
-            if (land.LandData.OwnerID != m_host.OwnerID)
-                return;
-
-            land.SetMusicUrl(url);
+            if (land.LandData.OwnerID != m_host.OwnerID) {
+                m_log.Debug ("[llSetParcelMusicURL]: land owner " + land.LandData.OwnerID.ToString () +
+                                                     " != object owner " + m_host.OwnerID.ToString ());
+            } else {
+                m_log.Debug ("[llSetParcelMusicURL]: owner " + m_host.OwnerID.ToString () + " setting url <" + url + ">");
+                land.SetMusicUrl(url);
+            }
 
             ScriptSleep(2000);
         }
