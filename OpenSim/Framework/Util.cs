@@ -2030,10 +2030,18 @@ namespace OpenSim.Framework
         public static bool ReadBoolean(XmlTextReader reader)
         {
             reader.ReadStartElement();
-            bool result = Boolean.Parse(reader.ReadContentAsString().ToLower());
+            string str = reader.ReadContentAsString().ToLower();
             reader.ReadEndElement();
 
-            return result;
+            if (str == "0") return false;
+            if (str == "1") return true;
+
+            try {
+                return Boolean.Parse(str);
+            } catch {
+                m_log.Debug ("[Util.ReadBoolean]: bad boolean <" + str + ">");
+                throw;
+            }
         }
 
         public static UUID ReadUUID(XmlTextReader reader, string name)
