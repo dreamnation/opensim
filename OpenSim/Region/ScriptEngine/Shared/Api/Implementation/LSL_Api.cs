@@ -10697,8 +10697,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                             break;
                         }
 
-                        if (HttpStandardHeaders.Contains(parameters.Data[i].ToString(), StringComparer.OrdinalIgnoreCase))
-                            throw new ScriptException("Name is invalid as a custom header at parameter " + i.ToString());
+                        string paramhdri = parameters.Data[i].ToString();
+                        foreach (string stdhdr in HttpStandardHeaders) {
+                            if (String.Compare(stdhdr, paramhdri, true) == 0) {
+                                throw new ScriptException("Name is invalid as a custom header at parameter " + i.ToString());
+                            }
+                        }
 
                         param.Add(parameters.Data[i].ToString());
                         param.Add(parameters.Data[i+1].ToString());
