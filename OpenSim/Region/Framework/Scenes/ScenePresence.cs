@@ -297,9 +297,9 @@ namespace OpenSim.Region.Framework.Scenes
             set { PhysicsActor.IsColliding = value; }
         }
 
-//        private int m_lastColCount = -1;		//KF: Look for Collision chnages
-//        private int m_updateCount = 0;			//KF: Update Anims for a while
-//        private static readonly int UPDATE_COUNT = 10;		// how many frames to update for
+//        private int m_lastColCount = -1;      //KF: Look for Collision chnages
+//        private int m_updateCount = 0;            //KF: Update Anims for a while
+//        private static readonly int UPDATE_COUNT = 10;        // how many frames to update for
         private List<uint> m_lastColliders = new List<uint>();
 
         private TeleportFlags m_teleportFlags;
@@ -365,7 +365,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         private bool m_collisionEventFlag = false;
         private object m_collisionEventLock = new Object();
-		
+        
         private int m_movementAnimationUpdateCounter = 0;
 
         public Vector3 PrevSitOffset { get; set; }
@@ -1750,7 +1750,7 @@ namespace OpenSim.Region.Framework.Scenes
             // m_originRegionID is UUID.Zero; after, it's non-Zero.  The CompleteMovement sequence initiated from the
             // viewer (in turn triggered by the source region sending it a TeleportFinish event) waits until it's non-zero
 //            m_updateAgentReceivedAfterTransferEvent.WaitOne(10000);
-			int count = 50;
+            int count = 50;
             UUID originID = UUID.Zero;           
 
             lock (m_originRegionIDAccessLock)
@@ -2743,7 +2743,7 @@ namespace OpenSim.Region.Framework.Scenes
      
             Scene targetScene = m_scene;
             // Get terrain height for sub-region in a megaregion if necessary
-        	if (regionCombinerModule != null)
+            if (regionCombinerModule != null)
             {
                 int X = (int)((m_scene.RegionInfo.WorldLocX) + pos.X);
                 int Y = (int)((m_scene.RegionInfo.WorldLocY) + pos.Y);
@@ -2999,7 +2999,7 @@ namespace OpenSim.Region.Framework.Scenes
 
                 cameraAtOffset = part.GetCameraAtOffset();
                 cameraEyeOffset = part.GetCameraEyeOffset();
-				
+                
                 forceMouselook = part.GetForceMouselook();
 
                 if (!part.IsRoot)
