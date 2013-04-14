@@ -168,9 +168,9 @@ namespace OpenSim.Region.Framework.Scenes
             set { PhysicsActor.IsColliding = value; }
         }
 
-//        private int m_lastColCount = -1;		//KF: Look for Collision chnages
-//        private int m_updateCount = 0;			//KF: Update Anims for a while
-//        private static readonly int UPDATE_COUNT = 10;		// how many frames to update for
+//        private int m_lastColCount = -1;      //KF: Look for Collision chnages
+//        private int m_updateCount = 0;            //KF: Update Anims for a while
+//        private static readonly int UPDATE_COUNT = 10;        // how many frames to update for
 
         private TeleportFlags m_teleportFlags;
         public TeleportFlags TeleportFlags
@@ -903,6 +903,9 @@ namespace OpenSim.Region.Framework.Scenes
                         sog.RootPart.ParentGroup.CreateScriptInstances(0, false, m_scene.DefaultScriptEngine, GetStateSource());
                         sog.ResumeScripts();
                     }
+
+                    m_log.DebugFormat(
+                        "[SCENE PRESENCE]: Scripts restarted in attachments for {0} in {1}", Name, Scene.Name);
                 }
             }
 
