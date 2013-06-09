@@ -54,11 +54,18 @@ namespace OpenSim.Region.OptionalModules.World.NPC
 
         public bool Enabled { get; private set; }
 
+        private string npcGroupTitle;
+        private string npcGroupTitleExcludeName;
+
         public void Initialise(IConfigSource source)
         {
             IConfig config = source.Configs["NPC"];
 
             Enabled = (config != null && config.GetBoolean("Enabled", false));
+            if (Enabled) {
+                npcGroupTitle = config.GetString ("NPCGroupTitle", "");
+                npcGroupTitleExcludeName = config.GetString ("NPCGroupTitleExcludeName", npcGroupTitle);
+            }
         }
 
         public void AddRegion(Scene scene)
@@ -185,6 +192,21 @@ namespace OpenSim.Region.OptionalModules.World.NPC
                     */
 
                     sp.CompleteMovement(npcAvatar, false);
+
+                    /*
+                     * If the parameters gave us a group title to force all NPCs to,
+                     * and the firstname does not contain the exclude string
+                     * and the lastname does not contain the exclude string,
+                     * set the NPCs group title to the given string and send it to
+                     * all connected viewers.
+                     */
+                    if ((npcGroupTitle != "") &&
+                        !firstname.Contains (npcGroupTitleExcludeName) &&
+                        !lastname.Contains (npcGroupTitleExcludeName)) {
+                        sp.Grouptitle = npcGroupTitle;
+                        sp.SendAvatarDataToAllAgents();
+                    }
+
                     m_avatars.Add(npcAvatar.AgentId, npcAvatar);
                     m_log.DebugFormat("[NPC MODULE]: Created NPC {0} {1}",
                             npcAvatar.AgentId, sp.Name);
