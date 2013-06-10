@@ -375,7 +375,19 @@ namespace OpenSim.Region.Framework.Scenes
         public string Firstname { get; private set; }
         public string Lastname { get; private set; }
 
-        public string Grouptitle { get; set; }
+        private string m_GroupTitle;
+        public string Grouptitle
+        {
+            get {
+                return m_GroupTitle;
+            }
+            set {
+                INPCModule module = m_scene.RequestModuleInterface<INPCModule>();
+                if ((module == null) || !module.IsNPC (m_uuid, m_scene)) {
+                    m_GroupTitle = value;
+                }
+            }
+        }
 
         // Agent's Draw distance.
         public float DrawDistance { get; set; }

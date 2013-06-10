@@ -199,6 +199,9 @@ namespace OpenSim.Region.OptionalModules.World.NPC
                      * and the lastname does not contain the exclude string,
                      * set the NPCs group title to the given string and send it to
                      * all connected viewers.
+                     *
+                     * This must be done before adding to m_avatars as once so added,
+                     * the group title cannot be changed.
                      */
                     if ((npcGroupTitle != "") &&
                         !firstname.Contains (npcGroupTitleExcludeName) &&
