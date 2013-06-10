@@ -604,7 +604,7 @@ namespace OpenSim.Framework
             // Attachments
             List<AvatarAttachment> attachments = GetAttachments();
             OSDArray attachs = new OSDArray(attachments.Count);
-            foreach (AvatarAttachment attach in GetAttachments())
+            foreach (AvatarAttachment attach in attachments)
                 attachs.Add(attach.Pack());
             data["attachments"] = attachs;
 
