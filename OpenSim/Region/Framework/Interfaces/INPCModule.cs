@@ -236,7 +236,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// True if the operation succeeded, false if there was no such agent
         /// or the agent was not an NPC.
         /// </returns>
-        bool DeleteNPC(UUID agentID, Scene scene);
+        bool DeleteNPC(UUID agentID, IScene scene);
 
         /// <summary>
         /// Get the owner of a NPC

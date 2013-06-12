@@ -65,6 +65,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
             if (Enabled) {
                 npcGroupTitle = config.GetString ("NPCGroupTitle", "");
                 npcGroupTitleExcludeName = config.GetString ("NPCGroupTitleExcludeName", npcGroupTitle);
+                MainConsole.Instance.Commands.AddCommand ("npc", false, "npc", "npc [...|help|...]", "NPC commands", ConsoleCommands);
             }
         }
 
@@ -397,7 +398,7 @@ namespace OpenSim.Region.OptionalModules.World.NPC
             }
         }
 
-        public bool DeleteNPC(UUID agentID, Scene scene)
+        public bool DeleteNPC(UUID agentID, IScene scene)
         {
             lock (m_avatars)
             {
@@ -446,6 +447,100 @@ namespace OpenSim.Region.OptionalModules.World.NPC
         {
             return callerID == UUID.Zero || av.OwnerID == UUID.Zero ||
                     av.OwnerID == callerID;
+        }
+
+        private void ConsoleCommands (string module, string[] args)
+        {
+            if (args.Length < 2) {
+                m_log.Info ("[NPCModule]: missing command, try 'npc help'");
+                return;
+            }
+            switch (args[1].ToLower ()) {
+                case "help": {
+                    m_log.Info ("[NPCModule]:   npc kill <part of name or position> - kill some NPCs in region");
+                    m_log.Info ("[NPCModule]:   npc ls [<part of name or position>] - list all or some NPCs in region");
+                    break;
+                }
+                case "kill": {
+                    Dictionary<UUID,string> knownNames = new Dictionary<UUID,string> ();
+                    string names = GetNPCNames (args, 2);
+                    if (names == "") {
+                        m_log.Info ("[NPCModule]: nothing given to kill, use 'npc kill <part of name or position>'");
+                        break;
+                    }
+                    List<NPCAvatar> tokill = new List<NPCAvatar> ();
+                    lock (m_avatars) {
+                        foreach (NPCAvatar npcav in m_avatars.Values) {
+                            string avls = npcav.Name + " " + npcav.Position + " " + GetAvName (npcav.OwnerID, npcav.Scene, knownNames);
+                            if (avls.Contains (names)) {
+                                tokill.Add (npcav);
+                            }
+                        }
+                    }
+                    foreach (NPCAvatar npcav in tokill) {
+                        DeleteNPC (npcav.AgentId, npcav.Scene);
+                    }
+                    break;
+                }
+                case "ls": {
+                    Dictionary<UUID,string> knownNames = new Dictionary<UUID,string> ();
+                    string names  = GetNPCNames (args, 2);
+                    int w_npc = "NPC".Length;
+                    int w_pos = "Position".Length;
+                    lock (m_avatars) {
+                        foreach (NPCAvatar npcav in m_avatars.Values) {
+                            int l_npc = npcav.Name.Length;
+                            int l_pos = npcav.Position.ToString ().Length;
+                            if (w_npc < l_npc) w_npc = l_npc;
+                            if (w_pos < l_pos) w_pos = l_pos;
+                        }
+                        w_npc += 2;
+                        w_pos += 2;
+                        string avls = "NPC".PadRight (w_npc) + "Position".PadRight (w_pos) + "Owner";
+                        m_log.Info ("[NPCModule]:  " + avls);
+                        foreach (NPCAvatar npcav in m_avatars.Values) {
+                            avls = npcav.Name.PadRight (w_npc) +
+                                   npcav.Position.ToString ().PadRight (w_pos) +
+                                   GetAvName (npcav.OwnerID, npcav.Scene, knownNames);
+                            if (avls.Contains (names)) {
+                                m_log.Info ("[NPCModule]:  " + avls);
+                            }
+                        }
+                    }
+                    break;
+                }
+                default: {
+                    m_log.Info ("[NPCModule]: unknown command " + args[1] + ", try 'npc help'");
+                    break;
+                }
+            }
+        }
+
+        private static string GetNPCNames (string[] args, int i)
+        {
+            System.Text.StringBuilder sb = new System.Text.StringBuilder ();
+            for (; i < args.Length; i ++) {
+                if (i > 2) sb.Append (' ');
+                sb.Append (args[i]);
+            }
+            return sb.ToString ();
+        }
+
+        private static string GetAvName (UUID avuuid, IScene iscene, Dictionary<UUID,string> knownNames)
+        {
+            string avname;
+            if (!knownNames.TryGetValue (avuuid, out avname)) {
+                avname = avuuid.ToString ();
+                if (iscene is Scene) {
+                    Scene scene = (Scene)iscene;
+                    UserAccount account = scene.UserAccountService.GetUserAccount (scene.RegionInfo.ScopeID, avuuid);
+                    if (account != null) {
+                        avname = account.FirstName + " " + account.LastName;
+                    }
+                }
+                knownNames.Add (avuuid, avname);
+            }
+            return avname;
         }
     }
 }
