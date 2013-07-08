@@ -1325,9 +1325,9 @@ namespace OpenSim.Framework
             if (Environment.OSVersion.Platform == PlatformID.Unix)
                 ru = "Unix/Mono";
             else
-                if (Environment.OSVersion.Platform == PlatformID.MacOSX)
-                    ru = "OSX/Mono";
-                else
+                //if (Environment.OSVersion.Platform == PlatformID.MacOSX)
+                //    ru = "OSX/Mono";
+                //else
                 {
                     if (IsPlatformMono)
                         ru = "Win/Mono";
