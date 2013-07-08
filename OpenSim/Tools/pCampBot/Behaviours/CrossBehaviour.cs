@@ -105,7 +105,7 @@ namespace pCampBot
                 Bot.Client.Self.Movement.AtPos = true;
 
                 // Stop when reach region target or border cross detected
-                if (!m_regionCrossedMutex.WaitOne(m_regionCrossingTimeout))
+                if (!m_regionCrossedMutex.WaitOne(m_regionCrossingTimeout, false))
                 {
                     m_log.ErrorFormat(
                         "[CROSS BEHAVIOUR]: {0} failed to cross from {1} into {2} with {3}ms",

@@ -815,8 +815,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             m_host.AddScriptLPS(1);
             lock (Util.RandomClass)
             {
-				return Util.RandomClass.NextDouble() * mag;
-			}
+                return Util.RandomClass.NextDouble() * mag;
+            }
         }
 
         public LSL_Integer llFloor(double f)
@@ -1928,7 +1928,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             string userAgent = m_UrlModule.GetHttpHeader(new UUID(id), "user-agent");
             if (userAgent.IndexOf("SecondLife") < 0)
                 return; // Not the embedded browser. Is this check good enough?
-				
+                
             // Use the IP address of the client and check against the request
             // seperate logins from the same IP will allow all of them to get non-text/plain as long
             // as the owner is in the region. Same as SL!
@@ -1988,7 +1988,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 m_UrlModule.HttpContentType(new UUID(id),type);
             }
         }
-*/		
+*/      
         public void SetTexGen(SceneObjectPart part, int face,int style)
         {
             if (part == null || part.ParentGroup == null || part.ParentGroup.IsDeleted)
@@ -2918,7 +2918,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             m_host.AddScriptLPS(1);
             m_host.SetVelocity(new Vector3((float)vel.x, (float)vel.y, (float)vel.z), local != 0);
         }
-		
+        
         public void llSetAngularVelocity(LSL_Vector avel, int local)
         {
             m_host.AddScriptLPS(1);
@@ -5031,7 +5031,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 // Can't TP sitting avatars
                 if (presence.ParentID != 0) // Sitting
                     return;
-                   				
+                                
                 if (m_item.PermsGranter == agentId)
                 {
                     // If attached using llAttachToAvatarTemp, cowardly refuse
@@ -14028,8 +14028,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 ossl.CheckThreatLevel(ThreatLevel.High, "print");
                 m_log.Info("LSL print():" + str);
             }
-        }	
-        	
+        }   
+            
         public LSL_Integer llGetLinkNumberOfSides(LSL_Integer link)
         {
             List<SceneObjectPart> parts = GetLinkParts(link);

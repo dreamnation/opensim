@@ -1649,9 +1649,9 @@ namespace OpenSim.Framework
             if (Environment.OSVersion.Platform == PlatformID.Unix)
                 ru = "Unix/Mono";
             else
-                if (Environment.OSVersion.Platform == PlatformID.MacOSX)
-                    ru = "OSX/Mono";
-                else
+                //if (Environment.OSVersion.Platform == PlatformID.MacOSX)
+                //    ru = "OSX/Mono";
+                //else
                 {
                     if (IsPlatformMono)
                         ru = "Win/Mono";
@@ -3167,7 +3167,7 @@ namespace OpenSim.Framework
             lock (m_syncRoot)
             {
                 q.Enqueue(data);
-                m_s.WaitOne(0);
+                m_s.WaitOne(0, false);
                 m_s.Release();
             }
         }
@@ -3199,7 +3199,7 @@ namespace OpenSim.Framework
 
         public bool Dequeue(TimeSpan wait, ref T res)
         {
-            if (!m_s.WaitOne(wait))
+            if (!m_s.WaitOne(wait, false))
                 return false;
 
             lock (m_syncRoot)
@@ -3230,7 +3230,7 @@ namespace OpenSim.Framework
             lock (m_syncRoot)
             {
                 // Make sure sem count is 0
-                m_s.WaitOne(0);
+                m_s.WaitOne(0, false);
 
                 m_lowQueue.Clear();
                 m_highQueue.Clear();

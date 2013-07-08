@@ -54,7 +54,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine.ScriptBase
 
         public void opensim_reserved_CheckForCoopTermination()
         {
-            if (m_coopSleepHandle != null && m_coopSleepHandle.WaitOne(0))
+            if (m_coopSleepHandle != null && m_coopSleepHandle.WaitOne(0, false))
                 throw new ScriptCoopStopException();
         }
     }

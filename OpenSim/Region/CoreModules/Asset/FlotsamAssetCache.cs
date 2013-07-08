@@ -372,7 +372,7 @@ namespace OpenSim.Region.CoreModules.Asset
                 ManualResetEvent waitEvent;
                 if (m_CurrentlyWriting.TryGetValue(filename, out waitEvent))
                 {
-                    waitEvent.WaitOne(m_WaitOnInprogressTimeout);
+                    waitEvent.WaitOne(m_WaitOnInprogressTimeout, false);
                     return Get(id);
                 }
             }

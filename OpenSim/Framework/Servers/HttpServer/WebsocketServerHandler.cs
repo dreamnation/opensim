@@ -334,7 +334,7 @@ namespace OpenSim.Framework.Servers.HttpServer
                     d(this, new UpgradeCompletedEventArgs());
                 if (_initialMsgTimeout > 0)
                 {
-                    if (!_receiveDone.WaitOne(TimeSpan.FromMilliseconds(_initialMsgTimeout)))
+                    if (!_receiveDone.WaitOne(TimeSpan.FromMilliseconds(_initialMsgTimeout), false))
                         Close(string.Empty);
                 }
             }

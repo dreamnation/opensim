@@ -445,7 +445,7 @@ default
             SceneObjectPart partWhereRezzed = CreateScript(script, itemName, userId);
 
             // Wait for the script to start the event before we try stopping it.
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             if (m_osChatMessageReceived == null)
                 Assert.Fail("Script did not start");
@@ -473,7 +473,7 @@ default
             TaskInventoryItem rezzedItem = partWhereRezzed.Inventory.GetInventoryItem(itemName);
 
             // Wait for the script to start the event before we try stopping it.
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             if (m_osChatMessageReceived != null)
                 Console.WriteLine("Script started with message [{0}]", m_osChatMessageReceived.Message);
@@ -488,7 +488,7 @@ default
             // stopped.  This kind of multi-threading is far from ideal in a regression test.
             new Thread(() => { m_xEngine.StopScript(rezzedItem.ItemID); m_stoppedEvent.Set(); }).Start();
 
-            if (!m_stoppedEvent.WaitOne(30000))
+            if (!m_stoppedEvent.WaitOne(30000, false))
                 Assert.Fail("Script did not co-operatively stop.");
 
             bool running;
