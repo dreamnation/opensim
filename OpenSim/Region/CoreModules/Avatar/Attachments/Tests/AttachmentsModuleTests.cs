@@ -328,7 +328,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments.Tests
 
             scene.AttachmentsModule.RezSingleAttachmentFromInventory(sp, userItem.ID, (uint)AttachmentPoint.Chest);
 
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             // TODO: Need to have a test that checks the script is actually started but this involves a lot more
             // plumbing of the script engine and either pausing for events or more infrastructure to turn off various
@@ -441,7 +441,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments.Tests
                 = scene.AttachmentsModule.RezSingleAttachmentFromInventory(sp, userItem.ID, (uint)AttachmentPoint.Chest);
 
             // Wait for chat to signal rezzed script has been started.
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             scene.AttachmentsModule.DetachSingleAttachmentToInv(sp, rezzedSo);
 
@@ -460,7 +460,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Attachments.Tests
             SceneObjectGroup reRezzedSo = scene.AttachmentsModule.RezSingleAttachmentFromInventory(sp, userItem.ID, (uint)AttachmentPoint.Chest);
 
             // Wait for chat to signal rezzed script has been started.
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             TaskInventoryItem reRezzedScriptItem = reRezzedSo.RootPart.Inventory.GetInventoryItem(scriptTaskItem.Name);
             IScriptModule xengine = scene.RequestModuleInterface<IScriptModule>();

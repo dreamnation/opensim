@@ -123,7 +123,7 @@ namespace OpenSim.Tests.Performance
                 AddObjectAndScript(idTail, userId);
             }
 
-            m_chatEvent.WaitOne(40000 + scriptsToCreate * 1000);
+            m_chatEvent.WaitOne(40000 + scriptsToCreate * 1000, false);
 
             Assert.That(m_osChatMessagesReceived.Count, Is.EqualTo(m_expectedChatMessages));
 

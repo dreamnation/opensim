@@ -107,7 +107,7 @@ namespace OpenSim.Region.ScriptEngine.XEngine.Tests
 
             SceneObjectPart partWhereRezzed = m_scene.RezNewScript(userId, itemTemplate);
 
-            m_chatEvent.WaitOne(60000);
+            m_chatEvent.WaitOne(60000, false);
 
             Assert.That(m_osChatMessageReceived, Is.Not.Null, "No chat message received in TestStartScript()");
             Assert.That(m_osChatMessageReceived.Message, Is.EqualTo("Script running"));
