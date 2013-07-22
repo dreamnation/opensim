@@ -12038,17 +12038,38 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             // This does nothing for LSO scripts in SL
         }
 
+        // http://wiki.secondlife.com/wiki/LlGetEnv
+        public string llGetEnv(LSL_String name)
+        {
+            m_host.AddScriptLPS(1);
+            switch (name) {
+                case "dynamic_pathfinding": {
+                    return "disabled";
+                }
+                case "estate_id": {
+                    return "1";
+                }
+                case "frame_number": {
+                    return m_ScriptEngine.World.Frame.ToString ();
+                }
+                case "region_idle": {
+                    return "0";
+                }
+                case "sim_channel": {
+                    return "OpenSim Server";
+                }
+                case "sim_version": {
+                    return m_ScriptEngine.World.GetSimulatorVersion ();
+                }
+                default: throw new NotImplementedException ("not implemented: " + name);
+            }
+        }
+
         #region Not Implemented
         //
         // Listing the unimplemented lsl functions here, please move
         // them from this region as they are completed
         //
-
-        public void llGetEnv(LSL_String name)
-        {
-            m_host.AddScriptLPS(1);
-            NotImplemented("llGetEnv");
-        }
 
         public void llSetSoundQueueing(int queue)
         {
