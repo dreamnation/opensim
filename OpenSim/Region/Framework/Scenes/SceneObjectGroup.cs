@@ -93,6 +93,7 @@ namespace OpenSim.Region.Framework.Scenes
     }
 
     public delegate void PrimCountTaintedDelegate();
+    public delegate void TrapRegionCrossingDelegate (Vector3 val);
 
     /// <summary>
     /// A scene object group is conceptually an object in the scene.  The object is constituted of SceneObjectParts
@@ -258,6 +259,21 @@ namespace OpenSim.Region.Framework.Scenes
         public bool IsTemporary
         {
             get { return (RootPart.Flags & PrimFlags.TemporaryOnRez) != 0; }
+        }
+
+        private LinkedList<TrapRegionCrossingDelegate> m_TRCList = new LinkedList<TrapRegionCrossingDelegate> ();
+        public void AddTrapRegionCrossing (TrapRegionCrossingDelegate trcd)
+        {
+            lock (m_TRCList) {
+                m_TRCList.AddLast (trcd);
+            }
+        }
+
+        public void RemTrapRegionCrossing (TrapRegionCrossingDelegate trcd)
+        {
+            lock (m_TRCList) {
+                m_TRCList.Remove (trcd);
+            }
         }
 
         public bool IsVolumeDetect
@@ -458,6 +474,23 @@ namespace OpenSim.Region.Framework.Scenes
                         if (m_rootPart.KeyframeMotion != null)
                             m_rootPart.KeyframeMotion.StartCrossingCheck();
 
+                        // If any script has enabled region crossing traps,
+                        // fire the event(s) and don't move
+                        TrapRegionCrossingDelegate[] trcds = null;
+                        lock (m_TRCList) {
+                            if (m_TRCList.Count > 0) {
+                                trcds = new TrapRegionCrossingDelegate[m_TRCList.Count];
+                                m_TRCList.CopyTo (trcds, 0);
+                            }
+                        }
+                        if (trcds != null) {
+                            foreach (TrapRegionCrossingDelegate trcd in trcds) {
+                                trcd (val);
+                            }
+                            return;
+                        }
+
+                        // No trap enabled, start moving object to new region
                         m_scene.CrossPrimGroupIntoNewRegion(val, this, true);
                     }
                 }
