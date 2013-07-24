@@ -92,7 +92,7 @@ namespace OpenSim.Region.Framework.Scenes
     }
 
     public delegate void PrimCountTaintedDelegate();
-    public delegate void TrapRegionCrossingDelegate (Vector3 val);
+    public delegate void TrapRegionCrossingDelegate (Vector3 newpos, Vector3 oldpos);
 
     /// <summary>
     /// A scene object group is conceptually an object in the scene.  The object is constituted of SceneObjectParts
@@ -100,6 +100,8 @@ namespace OpenSim.Region.Framework.Scenes
     /// </summary>
     public partial class SceneObjectGroup : EntityBase, ISceneObject
     {
+        private const float TWOMiM = 2.0F/1024.0F;  // a binary-conscious 2mm distance
+
         // Axis selection bitmask used by SetAxisRotation()
         // Just happen to be the same bits used by llSetStatus() and defined in ScriptBaseClass.
         public enum axisSelect : int
@@ -480,8 +482,27 @@ namespace OpenSim.Region.Framework.Scenes
                             }
                         }
                         if (trcds != null) {
+
+                            // Turn of physics and reset position to something within region.
+                            // If we don't do this, and script does something like llSetRot(),
+                            // it will hang the server because the physics thinks the prim is
+                            // in another region and then llSetRot() tries to reposition it
+                            // there and causes simultaneous calls to CrossPrimGroupIntoNewRegion().
+                            RootPart.ScriptSetPhysicsStatus (false);
+
+                            Vector3 clippedposition = val;
+                            if (clippedposition.X < TWOMiM) clippedposition.X = TWOMiM;
+                            if (clippedposition.Y < TWOMiM) clippedposition.Y = TWOMiM;
+                            if (clippedposition.X > Constants.RegionSize - TWOMiM) clippedposition.X = Constants.RegionSize - TWOMiM;
+                            if (clippedposition.Y > Constants.RegionSize - TWOMiM) clippedposition.Y = Constants.RegionSize - TWOMiM;
+                            UpdateGroupPosition (clippedposition);
+
+                            // Now that prim is non-physical and is back in the region,
+                            // post the region_cross() event giving it the position that
+                            // the prim was trying to be moved to.  Might as well pass
+                            // the in-region position as well.
                             foreach (TrapRegionCrossingDelegate trcd in trcds) {
-                                trcd (val);
+                                trcd (val, clippedposition);
                             }
                             return;
                         }
