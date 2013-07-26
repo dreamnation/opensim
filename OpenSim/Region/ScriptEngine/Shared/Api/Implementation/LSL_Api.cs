@@ -1260,19 +1260,14 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 if (value != 0)
                 {
                     SceneObjectGroup group = m_host.ParentGroup;
-                    bool allow = true;
 
                     foreach (SceneObjectPart part in group.Parts)
                     {
                         if (part.Scale.X > World.m_maxPhys || part.Scale.Y > World.m_maxPhys || part.Scale.Z > World.m_maxPhys)
                         {
-                            allow = false;
-                            break;
+                            throw new Exception ("part " + part.Name + " scale " + part.Scale + " too big to be physical, max " + World.m_maxPhys);
                         }
                     }
-
-                    if (!allow)
-                        return;
 
                     m_host.ScriptSetPhysicsStatus(true);
                 }
