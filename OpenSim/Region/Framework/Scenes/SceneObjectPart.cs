@@ -2687,6 +2687,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.Buoyancy = fvalue;
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetDieAtEdge(bool p)
@@ -2703,6 +2705,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.FloatOnWater = floatYN == 1;
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetForce(Vector3 force)
@@ -2711,6 +2715,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.Force = force;
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetVehicleType(int type)
@@ -2719,6 +2725,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.VehicleType = type;
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetVehicleFloatParam(int param, float value)
@@ -2727,6 +2735,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.VehicleFloatParam(param, value);
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetVehicleVectorParam(int param, Vector3 value)
@@ -2735,6 +2745,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.VehicleVectorParam(param, value);
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetVehicleRotationParam(int param, Quaternion rotation)
@@ -2743,6 +2755,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.VehicleRotationParam(param, rotation);
+            else
+                throw new Exception ("not physical");
         }
 
         /// <summary>
@@ -2949,6 +2963,8 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (pa != null)
                 pa.VehicleFlags(param, remove);
+            else
+                throw new Exception ("not physical");
         }
 
         public void SetGroup(UUID groupID, IClientAPI client)
@@ -2987,6 +3003,8 @@ namespace OpenSim.Region.Framework.Scenes
                 pa.LockAngularMotion(RotationAxis);
                 ParentGroup.Scene.PhysicsScene.AddPhysicsActorTaint(pa);
             }
+            else
+                throw new Exception ("not physical");
         }
 
         /// <summary>
