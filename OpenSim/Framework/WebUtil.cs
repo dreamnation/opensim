@@ -997,70 +997,51 @@ namespace OpenSim.Framework
                 request.Timeout = timeoutsecs * 1000;
             string respstring = String.Empty;
 
-            using (MemoryStream buffer = new MemoryStream())
-            {
-                if ((verb == "POST") || (verb == "PUT"))
-                {
-                    request.ContentType = "application/x-www-form-urlencoded";
+            MemoryStream buffer = new MemoryStream();
 
-                    int length = 0;
-                    using (StreamWriter writer = new StreamWriter(buffer))
-                    {
-                        writer.Write(obj);
-                        writer.Flush();
-                    }
+            if ((verb == "POST") || (verb == "PUT")) {
+                request.ContentType = "application/x-www-form-urlencoded";
 
-                    length = (int)obj.Length;
-                    request.ContentLength = length;
+                int length = 0;
+                StreamWriter writer = new StreamWriter(buffer);
+                writer.Write(obj);
+                writer.Flush();
 
-                    if (WebUtil.DebugLevel >= 5)
-                        WebUtil.LogOutgoingDetail(buffer);
+                length = (int)obj.Length;
+                request.ContentLength = length;
 
-                    Stream requestStream = null;
-                    try
-                    {
-                        requestStream = request.GetRequestStream();
+                try {
+                    Stream requestStream = request.GetRequestStream();
+                    try {
                         requestStream.Write(buffer.ToArray(), 0, length);
+                    } finally {
+                        requestStream.Close ();
                     }
-                    catch (Exception e)
-                    {
-                        m_log.DebugFormat(
+                } catch (Exception e) {
+                    m_log.DebugFormat(
                             "[FORMS]: exception occured {0} {1}: {2}{3}", verb, requestUrl, e.Message, e.StackTrace);
-                    }
-                    finally
-                    {
-                        if (requestStream != null)
-                            requestStream.Close();
-
-                        // capture how much time was spent writing
-                        tickdata = Util.EnvironmentTickCountSubtract(tickstart);
-                    }
                 }
+                tickdata = Util.EnvironmentTickCountSubtract(tickstart);
 
                 try
                 {
-                    using (WebResponse resp = request.GetResponse())
-                    {
-                        if (resp.ContentLength != 0)
+                    WebResponse resp = request.GetResponse();
+                    if (resp.ContentLength != 0) {
+                        try
                         {
-                            Stream respStream = null;
-                            try
-                            {
-                                using (respStream = resp.GetResponseStream())
-                                    using (StreamReader reader = new StreamReader(respStream))
-                                        respstring = reader.ReadToEnd();
+                            Stream respStream = resp.GetResponseStream();
+                            try {
+                                StreamReader reader = new StreamReader (respStream);
+                                respstring = reader.ReadToEnd();
+                            } finally {
+                                respStream.Close();
                             }
-                            catch (Exception e)
-                            {
-                                m_log.DebugFormat(
-                                    "[FORMS]: Exception occured on receiving {0} {1}: {2}{3}",
-                                    verb, requestUrl, e.Message, e.StackTrace);
-                            }
-                            finally
-                            {
-                                if (respStream != null)
-                                    respStream.Close();
-                            }
+                        }
+                        catch (Exception e)
+                        {
+                            m_log.DebugFormat(
+                                "[FORMS]: Exception occured on receiving {0} {1}: {2}{3}",
+                                verb, requestUrl, e.Message, e.StackTrace);
                         }
                     }
                 }
@@ -1072,7 +1053,7 @@ namespace OpenSim.Framework
             }
 
             int tickdiff = Util.EnvironmentTickCountSubtract(tickstart);
-            if (tickdiff > WebUtil.LongCallTime)
+            if (tickdiff > WebUtil.LongCallTime) {
                 m_log.InfoFormat(
                     "[FORMS]: Slow request {0} {1} {2} took {3}ms, {4}ms writing, {5}",
                     reqnum,
@@ -1081,10 +1062,11 @@ namespace OpenSim.Framework
                     tickdiff,
                     tickdata,
                     obj.Length > WebUtil.MaxRequestDiagLength ? obj.Remove(WebUtil.MaxRequestDiagLength) : obj);
-            else if (WebUtil.DebugLevel >= 4)
+            } else if (WebUtil.DebugLevel >= 4) {
                 m_log.DebugFormat(
                     "[WEB UTIL]: HTTP OUT {0} took {1}ms, {2}ms writing",
                     reqnum, tickdiff, tickdata);
+            }
 
             return respstring;
         }
