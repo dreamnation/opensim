@@ -26,6 +26,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -146,7 +147,7 @@ namespace OpenMetaverse
                 // kick off an async receive.  The Start() method will return, the
                 // actual receives will occur asynchronously and will be caught in
                 // AsyncEndRecieve().
-                AsyncBeginReceive();
+                new Thread (ReceiveThread).Start ();
             }
         }
 
@@ -204,134 +205,40 @@ namespace OpenMetaverse
             return false;
         }
 
-        private void AsyncBeginReceive()
+        private void ReceiveThread ()
         {
-            UDPPacketBuffer buf;
+            bool salvaging = false;
 
-            // FIXME: Disabled for now as this causes issues with reused packet objects interfering with each other 
-            // on Windows with m_asyncPacketHandling = true, though this has not been seen on Linux.
-            // Possibly some unexpected issue with fetching UDP data concurrently with multiple threads.  Requires more investigation.
-//            if (UsePools)
-//                buf = Pool.GetObject();
-//            else
-                buf = new UDPPacketBuffer();
-
-            if (IsRunningInbound)
-            {
+            while (IsRunningInbound) {
+                int len = 0;
+                UDPPacketBuffer buf = new UDPPacketBuffer();
                 try
                 {
-                    // kick off an async read
-                    m_udpSocket.BeginReceiveFrom(
-                        //wrappedBuffer.Instance.Data,
-                        buf.Data,
-                        0,
-                        UDPPacketBuffer.BUFFER_SIZE,
-                        SocketFlags.None,
-                        ref buf.RemoteEndPoint,
-                        AsyncEndReceive,
-                        //wrappedBuffer);
-                        buf);
+                    len = m_udpSocket.ReceiveFrom (buf.Data, 0, UDPPacketBuffer.BUFFER_SIZE, SocketFlags.None, ref buf.RemoteEndPoint);
+                    if (salvaging) {
+                        m_log.Warn("[UDPBASE]: Salvaged the UDP listener on port " + m_udpPort);
+                        salvaging = false;
+                    }
                 }
                 catch (SocketException e)
                 {
-                    if (e.SocketErrorCode == SocketError.ConnectionReset)
-                    {
+                    if (!salvaging && (e.SocketErrorCode == SocketError.ConnectionReset)) {
                         m_log.Warn("[UDPBASE]: SIO_UDP_CONNRESET was ignored, attempting to salvage the UDP listener on port " + m_udpPort);
-                        bool salvaged = false;
-                        while (!salvaged)
-                        {
-                            try
-                            {
-                                m_udpSocket.BeginReceiveFrom(
-                                    //wrappedBuffer.Instance.Data,
-                                    buf.Data,
-                                    0,
-                                    UDPPacketBuffer.BUFFER_SIZE,
-                                    SocketFlags.None,
-                                    ref buf.RemoteEndPoint,
-                                    AsyncEndReceive,
-                                    //wrappedBuffer);
-                                    buf);
-                                salvaged = true;
-                            }
-                            catch (SocketException) { }
-                            catch (ObjectDisposedException) { return; }
-                        }
-
-                        m_log.Warn("[UDPBASE]: Salvaged the UDP listener on port " + m_udpPort);
+                        salvaging = true;
                     }
                 }
                 catch (ObjectDisposedException) { }
-            }
-        }
-
-        private void AsyncEndReceive(IAsyncResult iar)
-        {
-            // Asynchronous receive operations will complete here through the call
-            // to AsyncBeginReceive
-            if (IsRunningInbound)
-            {
-                // Asynchronous mode will start another receive before the
-                // callback for this packet is even fired. Very parallel :-)
-                if (m_asyncPacketHandling)
-                    AsyncBeginReceive();
-
-                // get the buffer that was created in AsyncBeginReceive
-                // this is the received data
-                UDPPacketBuffer buffer = (UDPPacketBuffer)iar.AsyncState;
-
-                try
-                {
-                    // get the length of data actually read from the socket, store it with the
-                    // buffer
-                    buffer.DataLength = m_udpSocket.EndReceiveFrom(iar, ref buffer.RemoteEndPoint);
-
-                    // call the abstract method PacketReceived(), passing the buffer that
-                    // has just been filled from the socket read.
-                    PacketReceived(buffer);
+                if (len > 0) {
+                    buf.DataLength = len;
+                    PacketReceived (buf);
                 }
-                catch (SocketException) { }
-                catch (ObjectDisposedException) { }
-                finally
-                {
-//                    if (UsePools)
-//                        Pool.ReturnObject(buffer);
-
-                    // Synchronous mode waits until the packet callback completes
-                    // before starting the receive to fetch another packet
-                    if (!m_asyncPacketHandling)
-                        AsyncBeginReceive();
-                }
-
             }
         }
 
         public void AsyncBeginSend(UDPPacketBuffer buf)
         {
-            if (IsRunningOutbound)
-            {
-                try
-                {
-                    m_udpSocket.BeginSendTo(
-                        buf.Data,
-                        0,
-                        buf.DataLength,
-                        SocketFlags.None,
-                        buf.RemoteEndPoint,
-                        AsyncEndSend,
-                        buf);
-                }
-                catch (SocketException) { }
-                catch (ObjectDisposedException) { }
-            }
-        }
-
-        void AsyncEndSend(IAsyncResult result)
-        {
-            try
-            {
-//                UDPPacketBuffer buf = (UDPPacketBuffer)result.AsyncState;
-                m_udpSocket.EndSendTo(result);
+            try {
+                m_udpSocket.SendTo (buf.Data, 0, buf.DataLength, SocketFlags.None, buf.RemoteEndPoint);
             }
             catch (SocketException) { }
             catch (ObjectDisposedException) { }
