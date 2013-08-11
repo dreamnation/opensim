@@ -983,92 +983,120 @@ namespace OpenSim.Framework
         {
             int reqnum = WebUtil.RequestNumber++;
 
-            if (WebUtil.DebugLevel >= 3)
-                m_log.DebugFormat(
-                    "[WEB UTIL]: HTTP OUT {0} SynchronousRestForms {1} {2}",
-                    reqnum, verb, requestUrl);
+            /*
+             * Pick apart the given URL.
+             */
+            Uri uri = new Uri (requestUrl);
+            if (uri.Scheme != "http") throw new Exception ("only support http, not " + requestUrl);
+            string host = uri.Host;
+            int port = uri.Port;
+            if (port < 0) port = 80;
+            string path = uri.AbsolutePath;
 
-            int tickstart = Util.EnvironmentTickCount();
-            int tickdata = 0;
-
-            WebRequest request = WebRequest.Create(requestUrl);
-            request.Method = verb;
-            if (timeoutsecs > 0)
-                request.Timeout = timeoutsecs * 1000;
-            string respstring = String.Empty;
-
-            MemoryStream buffer = new MemoryStream();
-
-            if ((verb == "POST") || (verb == "PUT")) {
-                request.ContentType = "application/x-www-form-urlencoded";
-
-                int length = 0;
-                StreamWriter writer = new StreamWriter(buffer);
-                writer.Write(obj);
-                writer.Flush();
-
-                length = (int)obj.Length;
-                request.ContentLength = length;
-
-                try {
-                    Stream requestStream = request.GetRequestStream();
-                    try {
-                        requestStream.Write(buffer.ToArray(), 0, length);
-                    } finally {
-                        requestStream.Close ();
-                    }
-                } catch (Exception e) {
-                    m_log.DebugFormat(
-                            "[FORMS]: exception occured {0} {1}: {2}{3}", verb, requestUrl, e.Message, e.StackTrace);
-                }
-                tickdata = Util.EnvironmentTickCountSubtract(tickstart);
-
-                try
-                {
-                    WebResponse resp = request.GetResponse();
-                    if (resp.ContentLength != 0) {
-                        try
-                        {
-                            Stream respStream = resp.GetResponseStream();
-                            try {
-                                StreamReader reader = new StreamReader (respStream);
-                                respstring = reader.ReadToEnd();
-                            } finally {
-                                respStream.Close();
-                            }
-                        }
-                        catch (Exception e)
-                        {
-                            m_log.DebugFormat(
-                                "[FORMS]: Exception occured on receiving {0} {1}: {2}{3}",
-                                verb, requestUrl, e.Message, e.StackTrace);
-                        }
-                    }
-                }
-                catch (System.InvalidOperationException)
-                {
-                    // This is what happens when there is invalid XML
-                    m_log.DebugFormat("[FORMS]: InvalidOperationException on receiving {0} {1}", verb, requestUrl);
-                }
+            /*
+             * Connect to the web server.
+             */
+            int tickstart = Environment.TickCount;
+            System.Net.Sockets.TcpClient tcpconnection = new System.Net.Sockets.TcpClient (host, port);
+            if (timeoutsecs > 0) {
+                tcpconnection.SendTimeout    = timeoutsecs * 1000;
+                tcpconnection.ReceiveTimeout = timeoutsecs * 1000;
             }
 
-            int tickdiff = Util.EnvironmentTickCountSubtract(tickstart);
-            if (tickdiff > WebUtil.LongCallTime) {
-                m_log.InfoFormat(
-                    "[FORMS]: Slow request {0} {1} {2} took {3}ms, {4}ms writing, {5}",
-                    reqnum,
-                    verb,
-                    requestUrl,
-                    tickdiff,
-                    tickdata,
-                    obj.Length > WebUtil.MaxRequestDiagLength ? obj.Remove(WebUtil.MaxRequestDiagLength) : obj);
-            } else if (WebUtil.DebugLevel >= 4) {
-                m_log.DebugFormat(
-                    "[WEB UTIL]: HTTP OUT {0} took {1}ms, {2}ms writing",
-                    reqnum, tickdiff, tickdata);
-            }
+            try {
 
-            return respstring;
+                /*
+                 * Write request to the web server.
+                 */
+                Stream tcpstream = tcpconnection.GetStream ();
+                StreamWriter tcpwriter = new StreamWriter (tcpstream, Encoding.UTF8);
+                tcpwriter.Write (verb + " " + path + " HTTP/1.1\r\n");
+                tcpwriter.Write ("Host: " + host + "\r\n");
+
+                /*
+                 * There might be some POST data to write to web server.
+                 */
+                if ((verb == "POST") || (verb == "PUT")) {
+                    byte[] bytes = Encoding.UTF8.GetBytes (obj);
+
+                    tcpwriter.Write ("Content-Length: " + bytes.Length + "\r\n");
+                    tcpwriter.Write ("Content-Type: application/x-www-form-urlencoded\r\n");
+                    tcpwriter.Write ("\r\n");
+                    tcpwriter.Flush ();
+
+                    tcpstream.Write (bytes, 0, bytes.Length);
+                    tcpstream.Flush ();
+                } else {
+                    tcpwriter.Flush ();
+                    tcpstream.Flush ();
+                }
+
+                /*
+                 * Check for successful reply status line.
+                 */
+                string headerline = ReadStreamLine (tcpstream).Trim ();
+                if (headerline != "HTTP/1.1 200 OK") throw new Exception ("status line " + headerline);
+
+                /*
+                 * Scan through header lines.
+                 * The only one we care about is Content-Length.
+                 */
+                int contentlength = -1;
+                while ((headerline = ReadStreamLine (tcpstream).Trim ().ToLowerInvariant ()) != "") {
+                    if (headerline.StartsWith ("content-length:")) {
+                        contentlength = int.Parse (headerline.Substring (15));
+                    }
+                }
+                if (contentlength < 0) throw new Exception ("response header missing content-length");
+
+                /*
+                 * Read response byte array with the exact length given by Content-Length.
+                 */
+                byte[] respbytes = new byte[contentlength];
+                int numread;
+                for (int offs = 0; offs < contentlength; offs += numread) {
+                    numread = tcpstream.Read (respbytes, offs, contentlength - offs);
+                    if (numread <= 0) throw new Exception ("end of stream");
+                }
+
+                /*
+                 * Output warning message if request took a long time.
+                 */
+                int tickdiff = Environment.TickCount - tickstart;
+                if (tickdiff > WebUtil.LongCallTime) {
+                    m_log.InfoFormat(
+                        "[SynchronousRestFormsRequester.MakeRequest]: Slow request {0} {1} {2} took {3}ms, {4}",
+                        reqnum,
+                        verb,
+                        requestUrl,
+                        tickdiff,
+                        obj.Length > WebUtil.MaxRequestDiagLength ? obj.Remove(WebUtil.MaxRequestDiagLength) : obj);
+                }
+
+                /*
+                 * Convert response byte array to a string.
+                 */
+                return Encoding.UTF8.GetString (respbytes);
+            } finally {
+                tcpconnection.Close ();
+            }
+        }
+
+        /**
+         * @brief Read the next text line from a stream.
+         * @returns string with \r\n trimmed off
+         */
+        public static string ReadStreamLine (Stream stream)
+        {
+            StringBuilder sb = new StringBuilder ();
+            while (true) {
+                int b = stream.ReadByte ();
+                if (b < 0) break;
+                if (b == '\n') break;
+                if (b == '\r') continue;
+                sb.Append ((char)b);
+            }
+            return sb.ToString ();
         }
 
         public static string MakeRequest(string verb, string requestUrl, string obj)
