@@ -972,8 +972,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.XmlRpcGroups
                 IList parameters = new ArrayList();
                 parameters.Add(param);
 
-                ConfigurableKeepAliveXmlRpcRequest req;
-                req = new ConfigurableKeepAliveXmlRpcRequest(function, parameters, m_disableKeepAlive);
+                ConfigurableKeepAliveXmlRpcRequestt req = new ConfigurableKeepAliveXmlRpcRequestt(function, parameters, m_disableKeepAlive);
 
                 try
                 {
@@ -1107,67 +1106,54 @@ namespace Nwc.XmlRpc
     using System;
     using System.Collections;
     using System.IO;
-    using System.Xml;
-    using System.Net;
     using System.Text;
-    using System.Reflection;
+    using System.Xml;
 
     /// <summary>Class supporting the request side of an XML-RPC transaction.</summary>
-    public class ConfigurableKeepAliveXmlRpcRequest : XmlRpcRequest
+    public class ConfigurableKeepAliveXmlRpcRequestt
     {
-        private XmlRpcRequestSerializer _serializer = new XmlRpcRequestSerializer();
-        private XmlRpcResponseDeserializer _deserializer = new XmlRpcResponseDeserializer();
-        private bool _disableKeepAlive = true;
+        private string _methodName;
+        private IList _params;
+        private string _responseString = String.Empty;
 
-        public string RequestResponse = String.Empty;
+        public string RequestResponse { get { return _responseString; } }
 
         /// <summary>Instantiate an <c>XmlRpcRequest</c> for a specified method and parameters.</summary>
         /// <param name="methodName"><c>String</c> designating the <i>object.method</i> on the server the request
         /// should be directed to.</param>
         /// <param name="parameters"><c>ArrayList</c> of XML-RPC type parameters to invoke the request with.</param>
-        public ConfigurableKeepAliveXmlRpcRequest(String methodName, IList parameters, bool disableKeepAlive)
+        public ConfigurableKeepAliveXmlRpcRequestt(String methodName, IList parameters, bool disableKeepAlive)
         {
-            MethodName = methodName;
+            _methodName = methodName;
             _params = parameters;
-            _disableKeepAlive = disableKeepAlive;
         }
 
         /// <summary>Send the request to the server.</summary>
         /// <param name="url"><c>String</c> The url of the XML-RPC server.</param>
         /// <returns><c>XmlRpcResponse</c> The response generated.</returns>
-        public XmlRpcResponse Send(String url)
+        public XmlRpcResponse Send (String url, int timeoutms)
         {
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            if (request == null)
-                throw new XmlRpcException(XmlRpcErrorCodes.TRANSPORT_ERROR,
-                              XmlRpcErrorCodes.TRANSPORT_ERROR_MSG + ": Could not create request with " + url);
-            request.Method = "POST";
-            request.ContentType = "text/xml";
-            request.AllowWriteStreamBuffering = true;
-            request.KeepAlive = !_disableKeepAlive;
+            /*
+             * Convert method name and parameters to XML string.
+             */
+            MemoryStream mstm = new MemoryStream ();
+            XmlTextWriter xmlTextWriter = new XmlTextWriter (mstm, Encoding.UTF8);
+            XmlRpcRequest xmlRpcRequest = new XmlRpcRequest (_methodName, _params);
+            new XmlRpcRequestSerializer ().Serialize (xmlTextWriter, xmlRpcRequest);
+            xmlTextWriter.Close ();
+            byte[] postArray = mstm.ToArray ();
+            string postString = Encoding.UTF8.GetString (postArray);
 
-            Stream stream = request.GetRequestStream();
-            XmlTextWriter xml = new XmlTextWriter(stream, Encoding.ASCII);
-            _serializer.Serialize(xml, this);
-            xml.Flush();
-            xml.Close();
+            /*
+             * Post request and get response string.
+             */
+            _responseString = OpenSim.Framework.SynchronousRestFormsRequester.MakeRequest ("POST", url, postString, timeoutms);
 
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-            StreamReader input = new StreamReader(response.GetResponseStream());
-
-            string inputXml = input.ReadToEnd();
-            XmlRpcResponse resp;
-            try
-            {
-                resp = (XmlRpcResponse)_deserializer.Deserialize(inputXml);
-            }
-            catch (Exception e)
-            {
-                RequestResponse = inputXml;
-                throw e;
-            }
-            input.Close();
-            response.Close();
+            /*
+             * Decode the XML response.
+             */
+            StringReader respReader = new StringReader (_responseString);
+            XmlRpcResponse resp = (XmlRpcResponse)(new XmlRpcResponseDeserializer ().Deserialize (respReader));
             return resp;
         }
     }
