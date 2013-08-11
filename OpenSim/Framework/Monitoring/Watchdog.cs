@@ -39,7 +39,7 @@ namespace OpenSim.Framework.Monitoring
     public static class Watchdog
     {
         /// <summary>Timer interval in milliseconds for the watchdog timer</summary>
-        public const double WATCHDOG_INTERVAL_MS = 2500.0d;
+        public const int WATCHDOG_INTERVAL_MS = 2500;
 
         /// <summary>Default timeout in milliseconds before a thread is considered dead</summary>
         public const int DEFAULT_WATCHDOG_TIMEOUT_MS = 5000;
@@ -116,27 +116,22 @@ namespace OpenSim.Framework.Monitoring
             get { return m_enabled; }
             set
             {
-//                m_log.DebugFormat("[MEMORY WATCHDOG]: Setting MemoryWatchdog.Enabled to {0}", value);
+                if (value != m_enabled) {
+                    m_enabled = value;
 
-                if (value == m_enabled)
-                    return;
-
-                m_enabled = value;
-
-                if (m_enabled)
-                {
-                    // Set now so we don't get alerted on the first run
-                    LastWatchdogThreadTick = Environment.TickCount & Int32.MaxValue;
+                    if (m_enabled)
+                    {
+                        // Set now so we don't get alerted on the first run
+                        LastWatchdogThreadTick = Environment.TickCount & Int32.MaxValue;
+                    }
                 }
-
-                m_watchdogTimer.Enabled = m_enabled;
             }
         }
         private static bool m_enabled;
 
         private static readonly ILog m_log = LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
         private static Dictionary<int, ThreadWatchdogInfo> m_threads;
-        private static System.Timers.Timer m_watchdogTimer;
+        private static Thread m_watchdogTimerThread;
 
         /// <summary>
         /// Last time the watchdog thread ran.
@@ -149,9 +144,8 @@ namespace OpenSim.Framework.Monitoring
         static Watchdog()
         {
             m_threads = new Dictionary<int, ThreadWatchdogInfo>();
-            m_watchdogTimer = new System.Timers.Timer(WATCHDOG_INTERVAL_MS);
-            m_watchdogTimer.AutoReset = false;
-            m_watchdogTimer.Elapsed += WatchdogTimerElapsed;
+            m_watchdogTimerThread = new Thread (WatchdogTimerThread);
+            m_watchdogTimerThread.Start ();
         }
 
         /// <summary>
@@ -324,10 +318,20 @@ namespace OpenSim.Framework.Monitoring
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private static void WatchdogTimerElapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private static void WatchdogTimerThread ()
         {
-            int now = Environment.TickCount & Int32.MaxValue;
-            int msElapsed = now - LastWatchdogThreadTick;
+            while (true) {
+                Thread.Sleep (WATCHDOG_INTERVAL_MS);
+                if (m_enabled) {
+                    WatchdogTimerElapsed ();
+                }
+            }
+        }
+
+        private static void WatchdogTimerElapsed ()
+        {
+            int now = Environment.TickCount;
+            int msElapsed = (now - LastWatchdogThreadTick) & Int32.MaxValue;
 
             if (msElapsed > WATCHDOG_INTERVAL_MS * 2)
                 m_log.WarnFormat(
@@ -355,7 +359,7 @@ namespace OpenSim.Framework.Monitoring
 
                             callbackInfos.Add(threadInfo);
                         }
-                        else if (!threadInfo.IsTimedOut && now - threadInfo.LastTick >= threadInfo.Timeout)
+                        else if (!threadInfo.IsTimedOut && ((now - threadInfo.LastTick) & Int32.MaxValue) >= threadInfo.Timeout)
                         {
                             threadInfo.IsTimedOut = true;
 
@@ -381,8 +385,6 @@ namespace OpenSim.Framework.Monitoring
                 MemoryWatchdog.Update();
 
             StatsManager.RecordStats();
-
-            m_watchdogTimer.Start();
         }
     }
 }
