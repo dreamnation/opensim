@@ -981,22 +981,25 @@ namespace OpenSim.Framework
         /// the request.  You'll want to make sure you deal with this as they're not uncommon</exception>
         public static string MakeRequest(string verb, string requestUrl, string obj, int timeoutsecs)
         {
-            int reqnum = WebUtil.RequestNumber++;
+            int reqnum = WebUtil.RequestNumber ++;
+            int tickstart = Environment.TickCount;
 
             /*
-             * Pick apart the given URL.
+             * Pick apart the given URL and make sure we support it.
              */
             Uri uri = new Uri (requestUrl);
-            if (uri.Scheme != "http") throw new Exception ("only support http, not " + requestUrl);
+            bool https = uri.Scheme == "https";
+            if (!https && (uri.Scheme != "http")) {
+                throw new WebException ("only support http and https, not " + uri.Scheme);
+            }
             string host = uri.Host;
             int port = uri.Port;
-            if (port < 0) port = 80;
+            if (port < 0) port = https ? 443 : 80;
             string path = uri.AbsolutePath;
 
             /*
              * Connect to the web server.
              */
-            int tickstart = Environment.TickCount;
             System.Net.Sockets.TcpClient tcpconnection = new System.Net.Sockets.TcpClient (host, port);
             if (timeoutsecs > 0) {
                 tcpconnection.SendTimeout    = timeoutsecs * 1000;
@@ -1006,57 +1009,102 @@ namespace OpenSim.Framework
             try {
 
                 /*
-                 * Write request to the web server.
+                 * Get TCP stream to/from web server.
+                 * If HTTPS, wrap stream with SSL encryption.
                  */
                 Stream tcpstream = tcpconnection.GetStream ();
-                StreamWriter tcpwriter = new StreamWriter (tcpstream, Encoding.UTF8);
-                tcpwriter.Write (verb + " " + path + " HTTP/1.1\r\n");
-                tcpwriter.Write ("Host: " + host + "\r\n");
+                if (https) {
+                    System.Net.Security.SslStream sslstream = new System.Net.Security.SslStream (tcpstream, false);
+                    sslstream.AuthenticateAsClient (host);
+                    tcpstream = sslstream;
+                }
 
                 /*
-                 * There might be some POST data to write to web server.
+                 * Write request header to the web server.
+                 * There might be some POST data as well to write to web server.
                  */
-                if ((verb == "POST") || (verb == "PUT")) {
+                WriteStream (tcpstream, verb + " " + path + " HTTP/1.1\r\n");
+                WriteStream (tcpstream, "Host: " + host + "\r\n");
+                if (obj != null) {
                     byte[] bytes = Encoding.UTF8.GetBytes (obj);
 
-                    tcpwriter.Write ("Content-Length: " + bytes.Length + "\r\n");
-                    tcpwriter.Write ("Content-Type: application/x-www-form-urlencoded\r\n");
-                    tcpwriter.Write ("\r\n");
-                    tcpwriter.Flush ();
-
+                    WriteStream (tcpstream, "Content-Length: " + bytes.Length + "\r\n");
+                    WriteStream (tcpstream, "Content-Type: application/x-www-form-urlencoded\r\n");
+                    WriteStream (tcpstream, "\r\n");
                     tcpstream.Write (bytes, 0, bytes.Length);
-                    tcpstream.Flush ();
                 } else {
-                    tcpwriter.Flush ();
-                    tcpstream.Flush ();
+                    WriteStream (tcpstream, "\r\n");
                 }
+                tcpstream.Flush ();
 
                 /*
                  * Check for successful reply status line.
                  */
                 string headerline = ReadStreamLine (tcpstream).Trim ();
-                if (headerline != "HTTP/1.1 200 OK") throw new Exception ("status line " + headerline);
+                if (headerline != "HTTP/1.1 200 OK") throw new WebException ("status line " + headerline);
 
                 /*
                  * Scan through header lines.
-                 * The only one we care about is Content-Length.
+                 * The only ones we care about are Content-Length and Transfer-Encoding.
                  */
+                bool chunked = false;
                 int contentlength = -1;
                 while ((headerline = ReadStreamLine (tcpstream).Trim ().ToLowerInvariant ()) != "") {
                     if (headerline.StartsWith ("content-length:")) {
                         contentlength = int.Parse (headerline.Substring (15));
                     }
+                    if (headerline.StartsWith ("transfer-encoding:") && (headerline.Substring (18).Trim () == "chunked")) {
+                        chunked = true;
+                    }
                 }
-                if (contentlength < 0) throw new Exception ("response header missing content-length");
+
+                /*
+                 * Read response byte array as a series of chunks.
+                 */
+                byte[] respbytes;
+                if (chunked) {
+                    LinkedList<byte[]> chunks = new LinkedList<byte[]> ();
+                    contentlength = 0;
+                    int chunklen;
+                    do {
+                        chunklen = int.Parse (ReadStreamLine (tcpstream), System.Globalization.NumberStyles.HexNumber);
+                        byte[] chunk = new byte[chunklen];
+                        int lenread;
+                        for (int offs = 0; offs < chunklen; offs += lenread) {
+                            lenread = tcpstream.Read (chunk, offs, chunklen - offs);
+                            if (lenread <= 0) throw new WebException ("end of stream");
+                        }
+                        int b = tcpstream.ReadByte ();
+                        if (b == '\r') b = tcpstream.ReadByte ();
+                        if (b != '\n') throw new WebException ("chunk not followed by \\r\\n");
+                        chunks.AddLast (chunk);
+                        contentlength += chunklen;
+                    } while (chunklen > 0);
+                    respbytes = new byte[contentlength];
+                    contentlength = 0;
+                    foreach (byte[] chunk in chunks) {
+                        Array.Copy (chunk, 0, respbytes, contentlength, chunk.Length);
+                        contentlength += chunk.Length;
+                    }
+                }
 
                 /*
                  * Read response byte array with the exact length given by Content-Length.
                  */
-                byte[] respbytes = new byte[contentlength];
-                int numread;
-                for (int offs = 0; offs < contentlength; offs += numread) {
-                    numread = tcpstream.Read (respbytes, offs, contentlength - offs);
-                    if (numread <= 0) throw new Exception ("end of stream");
+                else if (contentlength >= 0) {
+                    respbytes = new byte[contentlength];
+                    int lenread;
+                    for (int offs = 0; offs < contentlength; offs += lenread) {
+                        lenread = tcpstream.Read (respbytes, offs, contentlength - offs);
+                        if (lenread <= 0) throw new WebException ("end of stream");
+                    }
+                }
+
+                /*
+                 * Don't know how it is being transferred.
+                 */
+                else {
+                    throw new WebException ("header missing content-length or transfer-encoding: chunked");
                 }
 
                 /*
@@ -1083,10 +1131,19 @@ namespace OpenSim.Framework
         }
 
         /**
+         * @brief Write the string out as ASCII bytes.
+         */
+        private static void WriteStream (Stream stream, string line)
+        {
+            byte[] bytes = Encoding.ASCII.GetBytes (line);
+            stream.Write (bytes, 0, bytes.Length);
+        }
+
+        /**
          * @brief Read the next text line from a stream.
          * @returns string with \r\n trimmed off
          */
-        public static string ReadStreamLine (Stream stream)
+        private static string ReadStreamLine (Stream stream)
         {
             StringBuilder sb = new StringBuilder ();
             while (true) {
