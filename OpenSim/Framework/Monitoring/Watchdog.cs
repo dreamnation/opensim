@@ -60,7 +60,7 @@ namespace OpenSim.Framework.Monitoring
             /// <summary>
             /// Last time this heartbeat update was invoked
             /// </summary>
-            public int LastTick { get; set; }
+            public volatile int LastTick;
 
             /// <summary>
             /// Number of milliseconds before we notify that the thread is having a problem.
@@ -86,7 +86,7 @@ namespace OpenSim.Framework.Monitoring
             {
                 Thread = thread;
                 Timeout = timeout;
-                FirstTick = Environment.TickCount & Int32.MaxValue;
+                FirstTick = Environment.TickCount;
                 LastTick = FirstTick;
             }
 
@@ -122,7 +122,7 @@ namespace OpenSim.Framework.Monitoring
                     if (m_enabled)
                     {
                         // Set now so we don't get alerted on the first run
-                        LastWatchdogThreadTick = Environment.TickCount & Int32.MaxValue;
+                        LastWatchdogThreadTick = Environment.TickCount;
                     }
                 }
             }
@@ -277,7 +277,7 @@ namespace OpenSim.Framework.Monitoring
             {
                 if (m_threads.TryGetValue(threadID, out threadInfo))
                 {
-                    threadInfo.LastTick = Environment.TickCount & Int32.MaxValue;
+                    threadInfo.LastTick = Environment.TickCount;
                     threadInfo.IsTimedOut = false;
                 }
                 else
@@ -322,23 +322,22 @@ namespace OpenSim.Framework.Monitoring
         {
             while (true) {
                 Thread.Sleep (WATCHDOG_INTERVAL_MS);
-                if (m_enabled) {
-                    WatchdogTimerElapsed ();
-                }
+                WatchdogTimerElapsed ();
             }
         }
 
         private static void WatchdogTimerElapsed ()
         {
             int now = Environment.TickCount;
-            int msElapsed = (now - LastWatchdogThreadTick) & Int32.MaxValue;
+            int msElapsed = now - LastWatchdogThreadTick;
+            LastWatchdogThreadTick = now;
+
+            if (!m_enabled) return;
 
             if (msElapsed > WATCHDOG_INTERVAL_MS * 2)
                 m_log.WarnFormat(
                     "[WATCHDOG]: {0} ms since Watchdog last ran.  Interval should be approximately {1} ms",
                     msElapsed, WATCHDOG_INTERVAL_MS);
-
-            LastWatchdogThreadTick = Environment.TickCount & Int32.MaxValue;
 
             Action<ThreadWatchdogInfo> callback = OnWatchdogTimeout;
 
@@ -348,37 +347,49 @@ namespace OpenSim.Framework.Monitoring
 
                 lock (m_threads)
                 {
+                scan:
                     foreach (ThreadWatchdogInfo threadInfo in m_threads.Values)
                     {
-                        if (threadInfo.Thread.ThreadState == ThreadState.Stopped)
-                        {
+                        if ((threadInfo.Thread.ThreadState & ThreadState.Stopped) != 0) {
                             RemoveThread(threadInfo.Thread.ManagedThreadId);
 
-                            if (callbackInfos == null)
+                            if (callbackInfos == null) {
                                 callbackInfos = new List<ThreadWatchdogInfo>();
+                            }
 
                             callbackInfos.Add(threadInfo);
+                            goto scan;
                         }
-                        else if (!threadInfo.IsTimedOut && ((now - threadInfo.LastTick) & Int32.MaxValue) >= threadInfo.Timeout)
-                        {
-                            threadInfo.IsTimedOut = true;
 
-                            if (threadInfo.AlarmIfTimeout)
-                            {
-                                if (callbackInfos == null)
-                                    callbackInfos = new List<ThreadWatchdogInfo>();
+                        if (!threadInfo.IsTimedOut) {
+                            int lastTick = threadInfo.LastTick;
+                            int delta = now - lastTick;  // .lt. 0 means LastTick updated after now was set
 
-                                // Send a copy of the watchdog info to prevent race conditions where the watchdog
-                                // thread updates the monitoring info after an alarm has been sent out.
-                                callbackInfos.Add(new ThreadWatchdogInfo(threadInfo));
+                            int timeout = threadInfo.Timeout;
+                            if (delta >= timeout) {
+                                threadInfo.IsTimedOut = true;
+
+                                if (threadInfo.AlarmIfTimeout) {
+                                    if (callbackInfos == null) {
+                                        callbackInfos = new List<ThreadWatchdogInfo>();
+                                    }
+
+                                    // Send a copy of the watchdog info to prevent race conditions where the watchdog
+                                    // thread updates the monitoring info after an alarm has been sent out.
+                                    ThreadWatchdogInfo twicopy = new ThreadWatchdogInfo(threadInfo);
+                                    twicopy.LastTick = lastTick;
+                                    callbackInfos.Add (twicopy);
+                                }
                             }
                         }
                     }
                 }
 
-                if (callbackInfos != null)
-                    foreach (ThreadWatchdogInfo callbackInfo in callbackInfos)
-                        callback(callbackInfo);
+                if (callbackInfos != null) {
+                    foreach (ThreadWatchdogInfo callbackInfo in callbackInfos) {
+                        callback (callbackInfo);
+                    }
+                }
             }
 
             if (MemoryWatchdog.Enabled)

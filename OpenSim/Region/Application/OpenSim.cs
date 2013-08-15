@@ -395,7 +395,7 @@ namespace OpenSim
 
         private void WatchdogTimeoutHandler(Watchdog.ThreadWatchdogInfo twi)
         {
-            int now = Environment.TickCount & Int32.MaxValue;
+            int now = Environment.TickCount;
 
             m_log.ErrorFormat(
                 "[WATCHDOG]: Timeout detected for thread \"{0}\". ThreadState={1}. Last tick was {2}ms ago.  {3}",
@@ -560,7 +560,7 @@ namespace OpenSim
             CreateRegion(regInfo, true, out scene);
 
             if (changed)
-	            regInfo.EstateSettings.Save();
+                regInfo.EstateSettings.Save();
         }
 
         /// <summary>
