@@ -421,27 +421,22 @@ namespace OpenSim.Region.DataSnapshot
 
         private void CheckStale()
         {
-            // Wrap check
-            if (Environment.TickCount < m_lastUpdate)
-            {
-                m_lastUpdate = Environment.TickCount;
-            }
-
+            int now = Environment.TickCount;
             if (m_stales >= m_maxStales)
             {
-                if (Environment.TickCount - m_lastUpdate >= 20000)
+                if (now - m_lastUpdate >= 20000)
                 {
                     m_stales = 0;
-                    m_lastUpdate = Environment.TickCount;
+                    m_lastUpdate = now;
                     MakeEverythingStale();
                 }
             }
             else
             {
-                if (m_lastUpdate + 1000 * m_period < Environment.TickCount)
+                if (now - m_lastUpdate > 1000 * m_period)
                 {
                     m_stales = 0;
-                    m_lastUpdate = Environment.TickCount;
+                    m_lastUpdate = now;
                     MakeEverythingStale();
                 }
             }
