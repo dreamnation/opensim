@@ -215,7 +215,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             RTO = m_defaultRTO;
 
             // Initialize this to a sane value to prevent early disconnects
-            TickLastPacketReceived = Environment.TickCount & Int32.MaxValue;
+            TickLastPacketReceived = Environment.TickCount;
         }
 
         /// <summary>
@@ -281,7 +281,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         {
             return string.Format(
                 "{0,7} {1,7} {2,7} {3,9} {4,7} {5,7} {6,7} {7,7} {8,7} {9,8} {10,7} {11,7}",
-                Util.EnvironmentTickCountSubtract(TickLastPacketReceived),
+                Environment.TickCount - TickLastPacketReceived,
                 PacketsReceived,                                 
                 PacketsSent,
                 PacketsResent,
@@ -651,7 +651,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// signature</param>
         private void FireQueueEmpty(object o)
         {
-//            int start = Environment.TickCount & Int32.MaxValue;
+//            int start = Environment.TickCount;
 //            const int MIN_CALLBACK_MS = 30;
 
 //            if (m_udpServer.IsRunningOutbound)

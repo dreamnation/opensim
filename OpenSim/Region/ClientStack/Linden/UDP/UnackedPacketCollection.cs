@@ -137,7 +137,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             if (m_packets.Count > 0)
             {
-                int now = Environment.TickCount & Int32.MaxValue;
+                int now = Environment.TickCount;
 
                 foreach (OutgoingPacket packet in m_packets.Values)
                 {

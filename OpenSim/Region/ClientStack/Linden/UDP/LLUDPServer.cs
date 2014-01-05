@@ -1086,8 +1086,9 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             if (udpClient.IsPaused)
                 timeoutTicks = m_pausedAckTimeout;
 
+            int now = Environment.TickCount;
             if (client.IsActive &&
-                (Environment.TickCount & Int32.MaxValue) - udpClient.TickLastPacketReceived > timeoutTicks)
+                now - udpClient.TickLastPacketReceived > timeoutTicks)
             {
                 // We must set IsActive synchronously so that we can stop the packet loop reinvoking this method, even
                 // though it's set later on by LLClientView.Close()
@@ -1212,7 +1213,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             AsyncBeginSend(buffer);
 
             // Keep track of when this packet was sent out (right now)
-            outgoingPacket.TickCount = Environment.TickCount & Int32.MaxValue;
+            outgoingPacket.TickCount = Environment.TickCount;
         }
 
         private void RecordMalformedInboundPacket(IPEndPoint endPoint)
@@ -1361,7 +1362,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             // Stats tracking
             Interlocked.Increment(ref udpClient.PacketsReceived);
 
-            int now = Environment.TickCount & Int32.MaxValue;
+            int now = Environment.TickCount;
             udpClient.TickLastPacketReceived = now;
 
             #region ACK Receiving
