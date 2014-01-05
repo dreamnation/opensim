@@ -1914,9 +1914,8 @@ namespace OpenSim.Framework
         /// <returns></returns>
         public static Int32 EnvironmentTickCount()
         {
-            return Environment.TickCount & EnvironmentTickCountMask;
+            return Environment.TickCount;
         }
-        const Int32 EnvironmentTickCountMask = 0x3fffffff;
 
         /// <summary>
         /// Environment.TickCount is an int but it counts all 32 bits so it goes positive
@@ -1928,8 +1927,7 @@ namespace OpenSim.Framework
         /// <returns>subtraction of passed prevValue from current Environment.TickCount</returns>
         public static Int32 EnvironmentTickCountSubtract(Int32 newValue, Int32 prevValue)
         {
-            Int32 diff = newValue - prevValue;
-            return (diff >= 0) ? diff : (diff + EnvironmentTickCountMask + 1);
+            return newValue - prevValue;
         }
 
         /// <summary>
@@ -1948,15 +1946,6 @@ namespace OpenSim.Framework
         // A positive return value indicates A occured later than B
         public static Int32 EnvironmentTickCountCompare(Int32 tcA, Int32 tcB)
         {
-            // A, B and TC are all between 0 and 0x3fffffff
-            int tc = EnvironmentTickCount();
-
-            if (tc - tcA >= 0)
-                tcA += EnvironmentTickCountMask + 1;
-
-            if (tc - tcB >= 0)
-                tcB += EnvironmentTickCountMask + 1;
-
             return tcA - tcB;
         }
 
