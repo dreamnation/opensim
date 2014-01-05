@@ -135,7 +135,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <summary>Total number of sent packets that we have reported to the OnPacketStats event(s)</summary>
         private int m_packetsSentReported;
         /// <summary>Holds the Environment.TickCount value of when the next OnQueueEmpty can be fired</summary>
-        private int m_nextOnQueueEmpty = 1;
+        private int m_nextOnQueueEmpty = Environment.TickCount;
 
         /// <summary>Throttle bucket for this agent's connection</summary>
         private readonly AdaptiveTokenBucket m_throttleClient;
@@ -616,20 +616,14 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         /// <param name="categories">Throttle categories to fire the callback for</param>
         private void BeginFireQueueEmpty(ThrottleOutPacketTypeFlags categories)
         {
-//            if (m_nextOnQueueEmpty != 0 && (Environment.TickCount & Int32.MaxValue) >= m_nextOnQueueEmpty)
-            if (!m_isQueueEmptyRunning && (Environment.TickCount & Int32.MaxValue) >= m_nextOnQueueEmpty)
+            int start = Environment.TickCount;
+            if (!m_isQueueEmptyRunning && start - m_nextOnQueueEmpty >= 0)
             {
                 m_isQueueEmptyRunning = true;
 
-                int start = Environment.TickCount & Int32.MaxValue;
                 const int MIN_CALLBACK_MS = 30;
 
                 m_nextOnQueueEmpty = start + MIN_CALLBACK_MS;
-                if (m_nextOnQueueEmpty == 0)
-                    m_nextOnQueueEmpty = 1;
-
-                // Use a value of 0 to signal that FireQueueEmpty is running
-//                m_nextOnQueueEmpty = 0;
 
                 m_categories = categories;
 
@@ -674,10 +668,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 //                    }
                 }
 //            }
-
-//            m_nextOnQueueEmpty = start + MIN_CALLBACK_MS;
-//            if (m_nextOnQueueEmpty == 0)
-//                m_nextOnQueueEmpty = 1;
 
 //            }
 
