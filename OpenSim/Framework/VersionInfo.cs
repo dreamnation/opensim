@@ -32,7 +32,7 @@ namespace OpenSim
         public const string VersionNumber = "0.9.1.0";
         public const string AssemblyVersionNumber = "0.9.1.0";
 
-        public const Flavour VERSION_FLAVOUR = Flavour.Dev;
+        public const Flavour VERSION_FLAVOUR = Flavour.DreamNation;
 
         public enum Flavour
         {
@@ -43,7 +43,8 @@ namespace OpenSim
             RC3,
             Release,
             Post_Fixes,
-            Extended
+            Extended,
+            DreamNation
         }
 
         public static string Version
