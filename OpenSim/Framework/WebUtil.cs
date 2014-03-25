@@ -966,8 +966,6 @@ namespace OpenSim.Framework
 
     public static class SynchronousRestFormsRequester
     {
-        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-
         /// <summary>
         /// Perform a synchronous REST request.
         /// </summary>
@@ -980,6 +978,101 @@ namespace OpenSim.Framework
         /// <exception cref="System.Net.WebException">Thrown if we encounter a network issue while posting
         /// the request.  You'll want to make sure you deal with this as they're not uncommon</exception>
         public static string MakeRequest(string verb, string requestUrl, string obj, int timeoutsecs)
+        {
+            return SynchronousHttpRequester.MakeRequest (verb, requestUrl, "application/x-www-form-urlencoded", obj, timeoutsecs);
+        }
+
+        public static string MakeRequest(string verb, string requestUrl, string obj)
+        {
+            return MakeRequest(verb, requestUrl, obj, -1);
+        }
+    }
+
+    public class SynchronousRestObjectRequester
+    {
+        private static readonly ILog m_log =
+            LogManager.GetLogger(
+            MethodBase.GetCurrentMethod().DeclaringType);
+
+        /// <summary>
+        /// Perform a synchronous REST request.
+        /// </summary>
+        /// <param name="verb"></param>
+        /// <param name="requestUrl"></param>
+        /// <param name="obj"> </param>
+        /// <returns></returns>
+        ///
+        /// <exception cref="System.Net.WebException">Thrown if we encounter a network issue while posting
+        /// the request.  You'll want to make sure you deal with this as they're not uncommon</exception>
+        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj)
+        {
+            return MakeRequest<TRequest, TResponse>(verb, requestUrl, obj, 0);
+        }
+
+        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj, int pTimeout)
+        {
+            return MakeRequest<TRequest, TResponse>(verb, requestUrl, obj, pTimeout, 0);
+        }
+
+        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj, int pTimeout, int maxConnections)
+        {
+            string contentType = "application/x-www-form-urlencoded";
+
+            byte[] bytes = null;
+            if ((verb == "POST") || (verb == "PUT")) {
+                using (MemoryStream buffer = new MemoryStream()) {
+
+                    XmlWriterSettings settings = new XmlWriterSettings();
+                    settings.Encoding = Encoding.UTF8;
+
+                    using (XmlWriter writer = XmlWriter.Create(buffer, settings)) {
+                        XmlSerializer serializer = new XmlSerializer (typeof (TRequest));
+                        serializer.Serialize(writer, obj);
+                        writer.Flush();
+                    }
+
+                    bytes = buffer.ToArray ();
+                }
+
+                contentType = "text/xml";
+            }
+
+            TResponse deserial = default (TResponse);
+            try {
+                bytes = SynchronousHttpRequester.MakeRequest (verb, requestUrl, contentType, bytes, pTimeout);
+                using (Stream respStream = new MemoryStream (bytes)) {
+                    XmlSerializer deserializer = new XmlSerializer (typeof (TResponse));
+                    deserial = (TResponse)deserializer.Deserialize(respStream);
+                }
+            } catch (InvalidOperationException e) {
+                m_log.Error ("[SynchronousRestObjectRequester]: InvalidXML for " + verb + " " + requestUrl + " " + typeof(TResponse), e);
+            } catch (Exception e) {
+                m_log.Error ("[SynchronousRestObjectRequester]: Exception for " + verb + " " + requestUrl + " " + typeof(TResponse), e);
+            }
+
+            return deserial;
+        }
+    }
+
+    public class SynchronousHttpRequester {
+        private static readonly ILog m_log = LogManager.GetLogger (MethodBase.GetCurrentMethod().DeclaringType);
+
+        /**
+         * @brief Send Http(s) request and read response.
+         * @param verb = GET, POST, PUT
+         * @param requestUrl = web address
+         * @param obj = string containing any post data
+         * @param timeoutsecs = number of seconds for timeout
+         * @returns string containing reply
+         */
+        public static string MakeRequest(string verb, string requestUrl, string contentType, string obj, int timeoutsecs)
+        {
+            byte[] bytes = (obj == null) ? null : Encoding.UTF8.GetBytes (obj);
+            bytes = MakeRequest (verb, requestUrl, contentType, bytes, timeoutsecs);
+            return Encoding.UTF8.GetString (bytes);
+        }
+
+        public static byte[] MakeRequest(string verb, string requestUrl, string contentType, byte[] obj, int timeoutsecs)
         {
             int reqnum = WebUtil.RequestNumber ++;
             int tickstart = Environment.TickCount;
@@ -1026,12 +1119,10 @@ namespace OpenSim.Framework
                 WriteStream (tcpstream, verb + " " + path + " HTTP/1.1\r\n");
                 WriteStream (tcpstream, "Host: " + host + "\r\n");
                 if (obj != null) {
-                    byte[] bytes = Encoding.UTF8.GetBytes (obj);
-
-                    WriteStream (tcpstream, "Content-Length: " + bytes.Length + "\r\n");
-                    WriteStream (tcpstream, "Content-Type: application/x-www-form-urlencoded\r\n");
+                    WriteStream (tcpstream, "Content-Length: " + obj.Length + "\r\n");
+                    WriteStream (tcpstream, "Content-Type: " + contentType + "\r\n");
                     WriteStream (tcpstream, "\r\n");
-                    tcpstream.Write (bytes, 0, bytes.Length);
+                    tcpstream.Write (obj, 0, obj.Length);
                 } else {
                     WriteStream (tcpstream, "\r\n");
                 }
@@ -1113,18 +1204,14 @@ namespace OpenSim.Framework
                 int tickdiff = Environment.TickCount - tickstart;
                 if (tickdiff > WebUtil.LongCallTime) {
                     m_log.InfoFormat(
-                        "[SynchronousRestFormsRequester.MakeRequest]: Slow request {0} {1} {2} took {3}ms, {4}",
-                        reqnum,
-                        verb,
-                        requestUrl,
-                        tickdiff,
-                        obj.Length > WebUtil.MaxRequestDiagLength ? obj.Remove(WebUtil.MaxRequestDiagLength) : obj);
+                        "[SynchronousHttpRequester.MakeRequest]: Slow request {0} {1} {2} took {3}ms",
+                        reqnum, verb, requestUrl, tickdiff);
                 }
 
                 /*
-                 * Convert response byte array to a string.
+                 * Return response byte array.
                  */
-                return Encoding.UTF8.GetString (respbytes);
+                return respbytes;
             } finally {
                 tcpconnection.Close ();
             }
@@ -1154,185 +1241,6 @@ namespace OpenSim.Framework
                 sb.Append ((char)b);
             }
             return sb.ToString ();
-        }
-
-        public static string MakeRequest(string verb, string requestUrl, string obj)
-        {
-            return MakeRequest(verb, requestUrl, obj, -1);
-        }
-    }
-
-    public class SynchronousRestObjectRequester
-    {
-        private static readonly ILog m_log =
-            LogManager.GetLogger(
-            MethodBase.GetCurrentMethod().DeclaringType);
-
-        /// <summary>
-        /// Perform a synchronous REST request.
-        /// </summary>
-        /// <param name="verb"></param>
-        /// <param name="requestUrl"></param>
-        /// <param name="obj"> </param>
-        /// <returns></returns>
-        ///
-        /// <exception cref="System.Net.WebException">Thrown if we encounter a network issue while posting
-        /// the request.  You'll want to make sure you deal with this as they're not uncommon</exception>
-        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj)
-        {
-            return MakeRequest<TRequest, TResponse>(verb, requestUrl, obj, 0);
-        }
-
-        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj, int pTimeout)
-        {
-            return MakeRequest<TRequest, TResponse>(verb, requestUrl, obj, pTimeout, 0);
-        }
-
-        public static TResponse MakeRequest<TRequest, TResponse>(string verb, string requestUrl, TRequest obj, int pTimeout, int maxConnections)
-        {
-            int reqnum = WebUtil.RequestNumber++;
-
-            if (WebUtil.DebugLevel >= 3)
-                m_log.DebugFormat(
-                    "[WEB UTIL]: HTTP OUT {0} SynchronousRestObject {1} {2}",
-                    reqnum, verb, requestUrl);
-
-            int tickstart = Util.EnvironmentTickCount();
-            int tickdata = 0;
-
-            Type type = typeof(TRequest);
-            TResponse deserial = default(TResponse);
-
-            WebRequest request = WebRequest.Create(requestUrl);
-            HttpWebRequest ht = (HttpWebRequest)request;
-            if (maxConnections > 0 && ht.ServicePoint.ConnectionLimit < maxConnections)
-                ht.ServicePoint.ConnectionLimit = maxConnections;
-
-            request.Method = verb;
-            MemoryStream buffer = null;
-
-            if ((verb == "POST") || (verb == "PUT"))
-            {
-                request.ContentType = "text/xml";
-
-                buffer = new MemoryStream();
-
-                XmlWriterSettings settings = new XmlWriterSettings();
-                settings.Encoding = Encoding.UTF8;
-
-                using (XmlWriter writer = XmlWriter.Create(buffer, settings))
-                {
-                    XmlSerializer serializer = new XmlSerializer(type);
-                    serializer.Serialize(writer, obj);
-                    writer.Flush();
-                }
-
-                int length = (int)buffer.Length;
-                request.ContentLength = length;
-
-                if (WebUtil.DebugLevel >= 5)
-                    WebUtil.LogOutgoingDetail(buffer);
-
-                Stream requestStream = null;
-                try
-                {
-                    requestStream = request.GetRequestStream();
-                    requestStream.Write(buffer.ToArray(), 0, length);
-                }
-                catch (Exception e)
-                {
-                    m_log.DebugFormat(
-                        "[SynchronousRestObjectRequester]: Exception in making request {0} {1}: {2}{3}",
-                        verb, requestUrl, e.Message, e.StackTrace);
-
-                    return deserial;
-                }
-                finally
-                {
-                    if (requestStream != null)
-                        requestStream.Close();
-
-                    // capture how much time was spent writing
-                    tickdata = Util.EnvironmentTickCountSubtract(tickstart);
-                }
-            }
-
-            try
-            {
-                using (HttpWebResponse resp = (HttpWebResponse)request.GetResponse())
-                {
-                    if (resp.ContentLength != 0)
-                    {
-                        using (Stream respStream = resp.GetResponseStream())
-                        {
-                            XmlSerializer deserializer = new XmlSerializer(typeof(TResponse));
-                            deserial = (TResponse)deserializer.Deserialize(respStream);
-                        }
-                    }
-                    else
-                    {
-                        m_log.DebugFormat(
-                            "[SynchronousRestObjectRequester]: Oops! no content found in response stream from {0} {1}",
-                            verb, requestUrl);
-                    }
-                }
-            }
-            catch (WebException e)
-            {
-                using (HttpWebResponse hwr = (HttpWebResponse)e.Response)
-                {
-                    if (hwr != null && hwr.StatusCode == HttpStatusCode.NotFound)
-                        return deserial;
-                    else
-                        m_log.ErrorFormat(
-                            "[SynchronousRestObjectRequester]: WebException for {0} {1} {2}: {3} {4}",
-                            verb, requestUrl, typeof(TResponse).ToString(), e.Message, e.StackTrace);
-                }
-            }
-            catch (System.InvalidOperationException)
-            {
-                // This is what happens when there is invalid XML
-                m_log.DebugFormat(
-                    "[SynchronousRestObjectRequester]: Invalid XML from {0} {1} {2}",
-                    verb, requestUrl, typeof(TResponse).ToString());
-            }
-            catch (Exception e)
-            {
-                m_log.DebugFormat(
-                    "[SynchronousRestObjectRequester]: Exception on response from {0} {1}: {2}{3}",
-                    verb, requestUrl, e.Message, e.StackTrace);
-            }
-
-            int tickdiff = Util.EnvironmentTickCountSubtract(tickstart);
-            if (tickdiff > WebUtil.LongCallTime)
-            {
-                string originalRequest = null;
-
-                if (buffer != null)
-                {
-                    originalRequest = Encoding.UTF8.GetString(buffer.ToArray());
-
-                    if (originalRequest.Length > WebUtil.MaxRequestDiagLength)
-                        originalRequest = originalRequest.Remove(WebUtil.MaxRequestDiagLength);
-                }
-
-                m_log.InfoFormat(
-                    "[SynchronousRestObjectRequester]: Slow request {0} {1} {2} took {3}ms, {4}ms writing, {5}",
-                    reqnum,
-                    verb,
-                    requestUrl,
-                    tickdiff,
-                    tickdata,
-                    originalRequest);
-            }
-            else if (WebUtil.DebugLevel >= 4)
-            {
-                m_log.DebugFormat(
-                    "[WEB UTIL]: HTTP OUT {0} took {1}ms, {2}ms writing",
-                    reqnum, tickdiff, tickdata);
-            }
-
-            return deserial;
         }
     }
 }
