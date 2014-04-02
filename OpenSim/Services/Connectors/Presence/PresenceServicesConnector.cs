@@ -28,8 +28,10 @@
 using log4net;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using Nini.Config;
 using OpenSim.Framework;
 using OpenSim.Framework.Communications;
@@ -311,6 +313,24 @@ namespace OpenSim.Services.Connectors
 
         public PresenceInfo[] GetAgents(string[] userIDs)
         {
+            string path = Path.Combine (Path.GetTempPath (), "getagents.");
+            if (File.Exists (path + "enable")) try {
+                StringBuilder text = new StringBuilder ();
+                text.AppendLine ();
+                text.AppendLine (DateTime.UtcNow.ToString ());
+                foreach (string uid in userIDs) {
+                    text.AppendLine (uid);
+                }
+                StackTrace st = new StackTrace (true);
+                foreach (StackFrame sf in st.GetFrames ()) {
+                    text.AppendLine (sf.ToString ());
+                }
+                path += Process.GetCurrentProcess ().Id.ToString () + ".log";
+                File.AppendAllText (path, text.ToString ());
+            } catch (Exception e) {
+                m_log.Warn ("[PresenceServicesConnector]: failed to log GetAgents() call", e);
+            }
+
             Dictionary<string, object> sendData = new Dictionary<string, object>();
             //sendData["SCOPEID"] = scopeID.ToString();
             sendData["VERSIONMIN"] = ProtocolVersions.ClientProtocolVersionMin.ToString();

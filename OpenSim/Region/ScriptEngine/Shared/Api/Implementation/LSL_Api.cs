@@ -116,9 +116,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
         protected int m_scriptConsoleChannel = 0;
         protected bool m_scriptConsoleChannelEnabled = false;
         protected IUrlModule m_UrlModule = null;
-        protected Dictionary<UUID, UserInfoCacheEntry> m_userInfoCache = new Dictionary<UUID, UserInfoCacheEntry>();
         protected int EMAIL_PAUSE_TIME = 20;  // documented delay value for smtp.
         protected ISoundModule m_SoundModule = null;
+
+        protected const int m_userInfoCacheSecs = 60;
+        protected static DateTime m_userInfoCacheExpdate = DateTime.MinValue;
+        protected static Dictionary<UUID,UserInfoCacheEntry> m_userInfoCache = new Dictionary<UUID, UserInfoCacheEntry>();
 
         //An array of HTTP/1.1 headers that are not allowed to be used
         //as custom headers by llHTTPRequest.
@@ -4119,92 +4122,83 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
         {
             m_host.AddScriptLPS(1);
 
-            UUID uuid = (UUID)id;
+            DateTime now = DateTime.UtcNow;
             PresenceInfo pinfo = null;
             UserAccount account;
+            UserInfoCacheEntry ce = null;
+            UUID uuid = (UUID)id;
 
-            UserInfoCacheEntry ce;
-            if (!m_userInfoCache.TryGetValue(uuid, out ce))
-            {
-                account = World.UserAccountService.GetUserAccount(World.RegionInfo.ScopeID, uuid);
-                if (account == null)
-                {
-                    m_userInfoCache[uuid] = null; // Cache negative
-                    return UUID.Zero.ToString();
+            lock (m_userInfoCache) {
+                if (now >= m_userInfoCacheExpdate) {
+                    m_userInfoCache.Clear ();
+                    m_userInfoCacheExpdate = now.AddSeconds (m_userInfoCacheSecs * 2);
                 }
-
-
-                PresenceInfo[] pinfos = World.PresenceService.GetAgents(new string[] { uuid.ToString() });
-                if (pinfos != null && pinfos.Length > 0)
-                {
-                    foreach (PresenceInfo p in pinfos)
-                    {
-                        if (p.RegionID != UUID.Zero)
-                        {
-                            pinfo = p;
-                        }
-                    }
+                while (m_userInfoCache.TryGetValue (uuid, out ce) && (ce == null)) {
+                    Monitor.Wait (m_userInfoCache);
                 }
-
-                ce = new UserInfoCacheEntry();
-                ce.time = Util.EnvironmentTickCount();
-                ce.account = account;
-                ce.pinfo = pinfo;
-            }
-            else
-            {
-                if (ce == null)
-                    return UUID.Zero.ToString();
-
-                account = ce.account;
-                pinfo = ce.pinfo;
+                if (ce == null) {
+                    m_userInfoCache[uuid] = null;
+                }
             }
 
-            if (Util.EnvironmentTickCount() < ce.time || (Util.EnvironmentTickCount() - ce.time) >= 20000)
-            {
-                PresenceInfo[] pinfos = World.PresenceService.GetAgents(new string[] { uuid.ToString() });
-                if (pinfos != null && pinfos.Length > 0)
-                {
-                    foreach (PresenceInfo p in pinfos)
-                    {
-                        if (p.RegionID != UUID.Zero)
-                        {
-                            pinfo = p;
+            if (ce == null) {
+                try {
+                    account = World.UserAccountService.GetUserAccount(World.RegionInfo.ScopeID, uuid);
+                    if (account != null) {
+                        PresenceInfo[] pinfos = World.PresenceService.GetAgents(new string[] { uuid.ToString() });
+                        if (pinfos != null && pinfos.Length > 0) {
+                            foreach (PresenceInfo p in pinfos) {
+                                if (p.RegionID != UUID.Zero) {
+                                    pinfo = p;
+                                }
+                            }
                         }
                     }
-                }
-                else
-                    pinfo = null;
 
-                ce.time = Util.EnvironmentTickCount();
-                ce.pinfo = pinfo;
+                    ce = new UserInfoCacheEntry();
+                    ce.account = account;
+                    ce.pinfo = pinfo;
+                } finally {
+                    lock (m_userInfoCache) {
+                        if (ce == null) m_userInfoCache.Remove (uuid);
+                                   else m_userInfoCache[uuid] = ce;
+                        Monitor.PulseAll (m_userInfoCache);
+                    }
+                }
+            }
+
+            account = ce.account;
+            pinfo = ce.pinfo;
+
+            if (account == null) {
+                return UUID.Zero.ToString();
             }
 
             string reply = String.Empty;
 
             switch (data)
             {
-            case 1: // DATA_ONLINE (0|1)
+            case ScriptBaseClass.DATA_ONLINE: // (0|1)
                 if (pinfo != null && pinfo.RegionID != UUID.Zero)
                     reply = "1";
                 else
                     reply = "0";
                 break;
-            case 2: // DATA_NAME (First Last)
+            case ScriptBaseClass.DATA_NAME: // (First Last)
                 reply = account.FirstName + " " + account.LastName;
                 break;
-            case 3: // DATA_BORN (YYYY-MM-DD)
+            case ScriptBaseClass.DATA_BORN: // (YYYY-MM-DD)
                 DateTime born = new DateTime(1970, 1, 1, 0, 0, 0, 0);
                 born = born.AddSeconds(account.Created);
                 reply = born.ToString("yyyy-MM-dd");
                 break;
-            case 4: // DATA_RATING (0,0,0,0,0,0)
+            case ScriptBaseClass.DATA_RATING: // (0,0,0,0,0,0)
                 reply = "0,0,0,0,0,0";
                 break;
-            case 7: // DATA_USERLEVEL (integer)
+            case 7: // ScriptBaseClass.DATA_USERLEVEL: // (integer)
                 reply = account.UserLevel.ToString();
                 break;
-            case 8: // DATA_PAYINFO (0|1|2|3)
+            case ScriptBaseClass.DATA_PAYINFO: // (0|1|2|3)
                 reply = "0";
                 break;
             default:
