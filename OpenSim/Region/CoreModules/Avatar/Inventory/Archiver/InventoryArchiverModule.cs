@@ -393,6 +393,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
         /// <param name="cmdparams"></param>
         protected void HandleLoadInvConsoleCommand(string module, string[] cmdparams)
         {
+            m_log.Info ("[INVENTORY ARCHIVER]: load iar start");
             try
             {
                 UUID id = UUID.Random();
@@ -427,6 +428,10 @@ namespace OpenSim.Region.CoreModules.Avatar.Inventory.Archiver
             catch (InventoryArchiverException e)
             {
                 m_log.ErrorFormat("[INVENTORY ARCHIVER]: {0}", e.Message);
+            }
+            finally
+            {
+                m_log.Info ("[INVENTORY ARCHIVER]: load iar done");
             }
         }
 
