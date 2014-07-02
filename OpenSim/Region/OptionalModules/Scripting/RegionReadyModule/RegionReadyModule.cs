@@ -235,8 +235,12 @@ namespace OpenSim.Region.OptionalModules.Scripting.RegionReady
                 MainConsole.Instance.Output("INITIALIZATION COMPLETE FOR {0} - LOGINS ENABLED", null, m_scene.Name);
             }
 
-            m_scene.SceneGridService.InformNeighborsThatRegionisUp(
-                m_scene.RequestModuleInterface<INeighbourService>(), m_scene.RegionInfo);
+            try {
+                m_scene.SceneGridService.InformNeighborsThatRegionisUp(
+                    m_scene.RequestModuleInterface<INeighbourService>(), m_scene.RegionInfo);
+            } catch (Exception e) {
+                m_log.Warn ("[RegionReady]: exception informing neighbors that region is up", e);
+            }
 
             if (m_uri != string.Empty)
             {
