@@ -143,8 +143,20 @@ namespace OpenSim.Services.UserAccountService
                 {
                     d = ds[0];
                     foreach (GridUserData dd in ds)
-                        if (dd.UserID.Length > d.UserID.Length) // find the longest
+                    {
+                        if(dd.UserID == userID) // test for exact match
+                        {
                             d = dd;
+                            break;
+                        }
+                        else if (dd.UserID.Length > d.UserID.Length) // find the longest
+                            d = dd;
+                    }
+                    if(d.UserID != userID)
+                    {
+                        // this seems like it warrants a WARN, but will set at INFO for now
+                        m_log.InfoFormat("[GRID USER SERVICE]: No exact match found for User ID {0}. Returning {1}.", userID, d.UserID);   
+                    }
                 }
             }
 
