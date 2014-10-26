@@ -144,6 +144,11 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
                     m_newRegionCreatedHandler(scene);
                 }
             }
+
+            foreach (IScene scene in createdScenes)
+            {
+                scene.TriggerOnAllInitialScenesStarted ();
+            }
         }
 
         public void Dispose()
