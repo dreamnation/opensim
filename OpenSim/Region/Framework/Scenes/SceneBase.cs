@@ -623,6 +623,11 @@ namespace OpenSim.Region.Framework.Scenes
         {
         }
 
+        public virtual void TriggerOnAllInitialScenesStarted ()
+        {
+            EventManager.TriggerOnAllInitialScenesStarted ();
+        }
+
         public void Restart()
         {
             // This has to be here to fire the event
