@@ -1143,6 +1143,15 @@ namespace OpenSim.Region.Framework.Scenes
         /// </remarks>
         public event LandBuy OnValidateLandBuy;
 
+        /// <summary>
+        /// Triggered after all initial scenes have been started
+        /// </summary>
+        /// <remarks>
+        /// Can be used by script engines to know when it is ok to call TriggerEmptyScriptCompileQueue()
+        /// </remarks>
+        public event AllInitialScenesStarted OnAllInitialScenesStarted;
+        public delegate void AllInitialScenesStarted ();
+
         public void TriggerOnAttach(uint localID, UUID itemID, UUID avatarID)
         {
             Attach handlerOnAttach = OnAttach;
@@ -3395,5 +3404,25 @@ namespace OpenSim.Region.Framework.Scenes
 //                }
 //            }
 //        }
+
+        public void TriggerOnAllInitialScenesStarted ()
+        {
+            AllInitialScenesStarted handler = OnAllInitialScenesStarted;
+
+            if (handler != null)
+            {
+                foreach (AllInitialScenesStarted d in handler.GetInvocationList())
+                {
+                    try
+                    {
+                        d();
+                    }
+                    catch (Exception e)
+                    {
+                        m_log.Error("[EVENT MANAGER]: Delegate for AllInitialScenesStarted failed", e);
+                    }
+                }
+            }
+        }
     }
 }

@@ -143,5 +143,10 @@ namespace OpenSim.Framework
         /// Start the scene and associated scripts within it.
         /// </summary>
         void Start();
+
+        /// <summary>
+        /// All initial scenes have been started.
+        /// </summary>
+        void TriggerOnAllInitialScenesStarted ();
     }
 }
