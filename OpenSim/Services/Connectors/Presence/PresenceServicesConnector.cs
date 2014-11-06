@@ -349,15 +349,16 @@ namespace OpenSim.Services.Connectors
                         uri,
                         reqString,
                         m_Auth);
-                if (reply == null || (reply != null && reply == string.Empty))
-                {
-                    m_log.DebugFormat("[PRESENCE CONNECTOR]: GetAgents received null or empty reply");
-                    return null;
-                }
             }
             catch (Exception e)
             {
-                m_log.DebugFormat("[PRESENCE CONNECTOR]: Exception when contacting presence server at {0}: {1}", uri, e.Message);
+                m_log.Error ("[PRESENCE CONNECTOR]: GetAgents exception when contacting presence server at " + uri, e);
+                return new PresenceInfo[0];
+            }
+
+            if ((reply == null) || (reply == string.Empty)) {
+                m_log.Error ("[PRESENCE CONNECTOR]: GetAgents received null or empty reply");
+                return new PresenceInfo[0];
             }
 
             List<PresenceInfo> rinfos = new List<PresenceInfo>();
