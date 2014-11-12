@@ -277,6 +277,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                         {"WALK", "Walking"}
                 };
 
+        protected bool m_MoveToTargInProg = true;
+
         //An array of HTTP/1.1 headers that are not allowed to be used
         //as custom headers by llHTTPRequest.
         private string[] HttpStandardHeaders =
@@ -2953,12 +2955,16 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
         {
             m_host.AddScriptLPS(1);
             m_host.MoveToTarget(target, (float)tau);
+            m_MoveToTargInProg = true;
         }
 
         public void llStopMoveToTarget()
         {
             m_host.AddScriptLPS(1);
-            m_host.StopMoveToTarget();
+            if (m_MoveToTargInProg) {
+                m_host.StopMoveToTarget();
+                m_MoveToTargInProg = false;
+            }
         }
 
         public void llApplyImpulse(LSL_Vector force, int local)
