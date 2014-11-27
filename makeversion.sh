@@ -10,5 +10,5 @@ if [ "$COMMITDIRT" ]
 then
     COMMITDIRT="(dirty)"
 fi
-echo $COMMITHASH $COMMITDIRT $COMMITDATE > .version
+echo '' $COMMITHASH $COMMITDIRT $COMMITDATE > .version
 
