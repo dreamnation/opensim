@@ -474,8 +474,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Plugins
             List<SensedEntity> sensedEntities = new List<SensedEntity>();
 
             // If nobody about quit fast
-            if (m_CmdManager.m_ScriptEngine.World.GetRootAgentCount() == 0)
+            if ((m_CmdManager == null) ||
+                (m_CmdManager.m_ScriptEngine == null) ||
+                (m_CmdManager.m_ScriptEngine.World == null) ||
+                (m_CmdManager.m_ScriptEngine.World.GetRootAgentCount() == 0)) {
                 return sensedEntities;
+            }
 
             SceneObjectPart SensePoint = ts.host;
             Vector3 fromRegionPos = SensePoint.GetWorldPosition();
