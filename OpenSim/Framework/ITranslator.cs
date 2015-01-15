@@ -48,6 +48,11 @@ namespace OpenSim.Framework
         void ClientClosed ();
 
         /**
+         * osTranslatorControl() call.
+         */
+        object[] ScriptControl (string cmd, object[] args);
+
+        /**
          * Message came from client going to chat or IM.
          * Call finished to forward message on, passing null to not forward.
          */

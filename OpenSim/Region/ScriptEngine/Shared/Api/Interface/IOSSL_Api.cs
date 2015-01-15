@@ -468,5 +468,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         /// <param name="regex">string to use as pattern</param>
         /// <returns>boolean</returns>
         LSL_Integer osRegexIsMatch(string input, string pattern);
+
+        /// <summary>
+        /// Control translation of messages to/from script owner's client
+        /// See ITranslatorModule.ScriptControl() for details
+        /// </summary>
+        /// <returns>list</returns>
+        LSL_List osTranslatorControl (LSL_String cmd, LSL_List args);
     }
 }
