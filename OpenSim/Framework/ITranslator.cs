@@ -27,29 +27,36 @@
 
 using System;
 
-using OpenSim.Framework;
-
-namespace OpenSim.Region.Framework.Interfaces
+namespace OpenSim.Framework
 {
-    public delegate void ITranslatorModuleFinished (string translated);
+    public delegate void ITranslatorFinished (string message);
 
     public interface ITranslatorModule
     {
         /**
-         * What is the default language code, ie, english.
+         * Client being opened, set up translation context.
+         * Return null if translation disabled.
          */
-        string DefaultLanguageCode { get; }
+        ITranslatorClient ClientOpened (IClientAPI client);
+    }
+
+    public interface ITranslatorClient
+    {
+        /**
+         * Client being closed, tear down translation context.
+         */
+        void ClientClosed ();
 
         /**
-         * Client is requesting to change the language code to the given value.
-         * Return whether or not it is valid.
+         * Message came from client going to chat or IM.
+         * Call finished to forward message on, passing null to not forward.
          */
-        bool ValidLanguageCode (IClientAPI client, string lc);
+        void ClientToWhatev (ITranslatorFinished finished, string message, int channel);
 
         /**
-         * Client is requesting translation of message from srclc to dstlc.
-         * Call finished when translation is complete.
+         * Message came from chat or IM going to client.
+         * Call finished to forward message on, passing null to not forward.
          */
-        void Translate (IClientAPI client, string srclc, string dstlc, string message, ITranslatorModuleFinished finished);
+        void WhatevToClient (ITranslatorFinished finished, string message);
     }
 }

@@ -392,13 +392,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         protected IAssetService m_assetService;
         private const bool m_checkPackets = true;
 
-        private const int PUBLIC_CHANNEL = 0; // from OpenSim.Region.ScriptEngine.Shared.ScriptBase.ScriptBaseClass
-        private const string DISABLE_LANGCODE = "off";
-        private const string NOTRANS_LANGCODE = "-";
-
-        private bool translatorModuleInitted = false;
+        private const int PUBLIC_CHANNEL = 0;
+        private bool translatorModuleInitted;
         private ITranslatorModule translatorModule;
-        private string langcode;
+        private ITranslatorClient translatorClient;
+        private object translatorLock = new object ();
 
         #endregion Class Members
 
@@ -490,14 +488,19 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         public bool SendLogoutPacketWhenClosing { set { m_SendLogoutPacketWhenClosing = value; } }
        
 
-        private ITranslatorModule TranslatorModule
+        public ITranslatorClient TranslatorClient
         {
             get {
-                if (!translatorModuleInitted) {
-                    translatorModule = Scene.RequestModuleInterface<ITranslatorModule>();
-                    translatorModuleInitted = true;
+                lock (translatorLock) {
+                    if (!translatorModuleInitted) {
+                        translatorModuleInitted = true;
+                        translatorModule = Scene.RequestModuleInterface<ITranslatorModule> ();
+                        if (translatorModule != null) {
+                            translatorClient = translatorModule.ClientOpened (this);
+                        }
+                    }
                 }
-                return translatorModule;
+                return translatorClient;
             }
         }
 
@@ -611,6 +614,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
             // Shutdown the image manager
             ImageManager.Close();
+
+            // Shutdown the translator
+            if (translatorClient != null) {
+                translatorClient.ClientClosed ();
+            }
 
             // Fire the callback for this connection closing
             if (OnConnectionClosed != null)
@@ -960,63 +968,30 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             reply.ChatData.OwnerID = ownerID;
             reply.ChatData.SourceID = fromAgentID;
 
-            XlateToClient xtc = new XlateToClient ();
-            xtc.client = this;
-            xtc.reply = reply;
-            xtc.Start (message);
+            ChatToClient c2c = new ChatToClient ();
+            c2c.client = this;
+            c2c.reply  = reply;
+            ITranslatorClient xc = TranslatorClient;
+            if (xc == null) {
+                c2c.Finished (message);
+            } else {
+                xc.WhatevToClient (c2c.Finished, message);
+            }
         }
 
-        private class XlateToClient {
-            public LLClientView client;
+        private class ChatToClient {
             public ChatFromSimulatorPacket reply;
-
-            public void Start (string message)
-            {
-                if (client.TranslatorModule == null) {
-                    Finished (message);
-                    return;
-                }
-                if (client.langcode == null) {
-                    client.langcode = client.TranslatorModule.DefaultLanguageCode;
-                }
-
-                // see if message coming from sim has a language tag on it
-                // [[[languagecode]]]
-                // if not, put the default code on it
-
-                int i = message.IndexOf ("[[[");
-                int j = message.IndexOf ("]]]");
-                if ((i > 0) || (j < 0)) {
-                    if (client.langcode == client.TranslatorModule.DefaultLanguageCode) {
-                        Finished (message);
-                        return;
-                    }
-                    message = "[[[" + client.TranslatorModule.DefaultLanguageCode + "]]]" + message;
-                    j = message.IndexOf ("]]]");
-                }
-
-                // separate out the language code from the message from the rest of the message
-                string msglc = message.Substring (3, j - 3);
-                message = message.Substring (j + 3);
-
-                // if message's language matches the client's language, pass message to client as is
-                // also pass message as is if it was tagged with [[[--]]]
-                if ((msglc == NOTRANS_LANGCODE) || (msglc == client.langcode)) {
-                    Finished (message);
-                    return;
-                }
-
-                // otherwise, translate then pass translation to client
-                client.TranslatorModule.Translate (client, msglc, client.langcode, message, Finished);
-            }
+            public LLClientView client;
 
             /**
-             * Message is now in the client's language, send to client.
+             * Translator has finished translating message to client's language, send it to client.
              */
-            public void Finished (string translated)
+            public void Finished (string message)
             {
-                reply.ChatData.Message = Util.StringToBytes1024(translated);
-                client.OutPacket(reply, ThrottleOutPacketType.Unknown);
+                if (message != null) {
+                    reply.ChatData.Message = Util.StringToBytes1024 (message);
+                    client.OutPacket (reply, ThrottleOutPacketType.Unknown);
+                }
             }
         }
 
@@ -1027,8 +1002,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         // Don't remove transaction ID! Groups and item gives need to set it!
         public void SendInstantMessage(GridInstantMessage im)
         {
-            m_log.Info ("[LLClientView]: SendInstantMessage*: <" + im.message + "> -> " + this.Name);
-
             if (((Scene)(m_scene)).Permissions.CanInstantMessage(new UUID(im.fromAgentID), new UUID(im.toAgentID)))
             {
                 ImprovedInstantMessagePacket msg
@@ -1049,10 +1022,33 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 msg.MessageBlock.RegionID = new UUID(im.RegionID);
                 msg.MessageBlock.Timestamp = im.timestamp;
                 msg.MessageBlock.ToAgentID = new UUID(im.toAgentID);
-                msg.MessageBlock.Message = Util.StringToBytes1024(im.message);
                 msg.MessageBlock.BinaryBucket = im.binaryBucket;
 
-                OutPacket(msg, ThrottleOutPacketType.Task);
+                GimToClient g2c = new GimToClient ();
+                g2c.client = this;
+                g2c.msg    = msg;
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    g2c.Finished (im.message);
+                } else {
+                    xc.WhatevToClient (g2c.Finished, im.message);
+                }
+            }
+        }
+
+        private class GimToClient {
+            public ImprovedInstantMessagePacket msg;
+            public LLClientView client;
+
+            /**
+             * Translator has finished translating message to client's language, send it to client.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    msg.MessageBlock.Message = Util.StringToBytes1024 (message);
+                    client.OutPacket (msg, ThrottleOutPacketType.Task);
+                }
             }
         }
 
@@ -6381,69 +6377,33 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 args.Sender = this;
                 args.SenderUUID = this.AgentId;
 
-                if (XlateFromClient (args)) {
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
                     CallOnChatFromClient (args);
+                } else {
+                    ClientToChat c2c = new ClientToChat ();
+                    c2c.client = this;
+                    c2c.args   = args;
+                    xc.ClientToWhatev (c2c.Finished, args.Message, args.Channel);
                 }
             }
             return true;
         }
 
-        /**
-         * Make sure message is tagged with the client's language code,
-         * so when we chat it out to other clients, they will see what
-         * language it is and can decide to translate it or not.
-         *
-         * A client may manually prefix the message with [[[langcode]]] to
-         * override their current langcode setting.
-         *
-         * Also, process translator commands coming from this client:
-         *   [[[off]]] : turn translator off, client is assumed to be TranslatorModule.DefaultLanguageCode
-         *   [[[langcode]]] : turn translator on, client is assumed to be the given language code
-         *   [[[--]]] : never translate any messages to/from this client
-         */
-        private bool XlateFromClient (OSChatMessage args)
-        {
-            // only process messages targeted to the PUBLIC_CHANNEL
-            // we don't want to muck around with messages destined to scripts
-            if ((args.Channel == PUBLIC_CHANNEL) && (TranslatorModule != null)) {
-                string message = args.Message;
-                int i = message.IndexOf ("[[[");
-                int j = message.IndexOf ("]]]");
+        private class ClientToChat {
+            public LLClientView client;
+            public OSChatMessage args;
 
-                // translator commands begin with [[[ and end with ]]]
-                if ((i == 0) && (j == message.Length - 3)) {
-                    string newlc = message.Substring (3, message.Length - 6).ToLowerInvariant ();
-                    if (newlc == DISABLE_LANGCODE) newlc = TranslatorModule.DefaultLanguageCode;
-
-                    string reply;
-                    if (newlc == NOTRANS_LANGCODE) {
-                        reply = "pass-through mode";
-                        langcode = newlc;
-                    } else if (TranslatorModule.ValidLanguageCode (this, newlc)) {
-                        reply = "language code set to " + newlc;
-                        langcode = newlc;
-                    } else {
-                        reply = "unknown language code " + newlc;
-                    }
-
-                    // echo acknowledgement back to client without translation
-                    SendChatMessage ("[[[" + NOTRANS_LANGCODE + "]]]" + reply, (byte) ChatTypeEnum.Owner,
-                            Vector3.Zero, "Translator", UUID.Zero, UUID.Zero,
-                            (byte) ChatSourceType.System, (byte) ChatAudibleLevel.Fully);
-
-                    // don't pass the message into the sim for further processing
-                    return false;
-                }
-
-                // otherwise, if no explicit [[[lc]]] prefix, put in the client's current langcode setting
-                if ((i != 0) || (j < 0)) {
-                    if (langcode == null) langcode = TranslatorModule.DefaultLanguageCode;
-                    args.Message = "[[[" + langcode + "]]]" + message;
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    args.Message = message;
+                    client.CallOnChatFromClient (args);
                 }
             }
-
-            // now pass the message into the sim for further processing
-            return true;
         }
 
         private bool HandlerAvatarPropertiesUpdate(IClientAPI sender, Packet Pack)
@@ -6554,10 +6514,37 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         msgpack.MessageBlock.BinaryBucket,
                         true);
 
-                handlerInstantMessage(this, im);
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    handlerInstantMessage(this, im);
+                } else {
+                    ClientToGim c2g = new ClientToGim ();
+                    c2g.client = this;
+                    c2g.im     = im;
+                    c2g.him    = handlerInstantMessage;
+                    xc.ClientToWhatev (c2g.Finished, IMmessage, PUBLIC_CHANNEL);
+                }
+
             }
             return true;
 
+        }
+
+        private class ClientToGim {
+            public GridInstantMessage im;
+            public ImprovedInstantMessage him;
+            public LLClientView client;
+
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    im.message = message;
+                    him (client, im);
+                }
+            }
         }
 
         private bool HandlerAcceptFriendship(IClientAPI sender, Packet Pack)
