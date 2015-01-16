@@ -4109,7 +4109,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 IClientAPI client = presence.ControllingClient;
                 ITranslatorClient tc = client.TranslatorClient;
                 if (tc != null) {
-                    return new LSL_List (tc.ScriptControl (cmd, args.Data));
+                    return new LSL_List (tc.ScriptControl (this, cmd, args.Data));
                 }
             }
             return new LSL_List (new object[0]);

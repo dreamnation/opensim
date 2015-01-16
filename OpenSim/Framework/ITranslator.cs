@@ -50,7 +50,7 @@ namespace OpenSim.Framework
         /**
          * osTranslatorControl() call.
          */
-        object[] ScriptControl (string cmd, object[] args);
+        object[] ScriptControl (object script, string cmd, object[] args);
 
         /**
          * Message came from client going to chat or IM.
