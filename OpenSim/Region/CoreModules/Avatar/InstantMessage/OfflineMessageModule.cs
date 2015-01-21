@@ -55,6 +55,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
         private List<Scene> m_SceneList = new List<Scene>();
         private string m_RestURL = String.Empty;
         IMessageTransferModule m_TransferModule = null;
+        ITranslatorModule m_TranslatorModule;
         private bool m_ForwardOfflineGroupMessages = true;
         private Dictionary<IClientAPI, List<UUID>> m_repliesSent= new Dictionary<IClientAPI, List<UUID>>();
 
@@ -116,6 +117,8 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                 }
                 m_TransferModule.OnUndeliveredMessage += UndeliveredMessage;
             }
+
+            m_TranslatorModule = scene.RequestModuleInterface<ITranslatorModule> ();
         }
 
         public void RemoveRegion(Scene scene)
@@ -244,68 +247,43 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                     return;
             }
 
-            Scene scene = FindScene(new UUID(im.fromAgentID));
-            if (scene == null)
-                scene = m_SceneList[0];
+            SaveMessage sm = new SaveMessage ();
+            sm.im  = im;
+            sm.omm = this;
 
-// Avination new code
-//            SendReply reply = SynchronousRestObjectRequester.MakeRequest<GridInstantMessage, SendReply>(
-//                    "POST", m_RestURL+"/SaveMessage/?scope=" +
-//                    scene.RegionInfo.ScopeID.ToString(), im);
+            if (m_TranslatorModule == null) {
+                sm.Finished (im.message);
+            } else {
+                m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.Finished, im.message);
+            }
+        }
 
-// current opensim and osgrid compatible
-            bool success = SynchronousRestObjectRequester.MakeRequest<GridInstantMessage, bool>(
-                    "POST", m_RestURL+"/SaveMessage/", im, 10000);
-// current opensim and osgrid compatible end
+        private class SaveMessage {
+            public GridInstantMessage im;
+            public OfflineMessageModule omm;
 
-            if (im.dialog == (byte)InstantMessageDialog.MessageFromAgent)
+            public void Finished (string message)
             {
-                IClientAPI client = FindClient(new UUID(im.fromAgentID));
-                if (client == null)
-                    return;
-/* Avination new code
-                if (reply.Message == String.Empty)
-                    reply.Message = "User is not logged in. " + (reply.Success ? "Message saved." : "Message not saved");
+                bool success = false;
 
-                bool sendReply = true;
-
-                switch (reply.Disposition)
-                {
-                case 0: // Normal
-                    break;
-                case 1: // Only once per user
-                    if (m_repliesSent.ContainsKey(client) && m_repliesSent[client].Contains(new UUID(im.toAgentID)))
-                    {
-                        sendReply = false;
-                    }
-                    else
-                    {
-                        if (!m_repliesSent.ContainsKey(client))
-                            m_repliesSent[client] = new List<UUID>();
-                        m_repliesSent[client].Add(new UUID(im.toAgentID));
-                    }
-                    break;
+                if (message != null) {
+                    im.message = message;
+                    success = SynchronousRestObjectRequester.MakeRequest<GridInstantMessage, bool>(
+                            "POST", omm.m_RestURL+"/SaveMessage/", im, 10000);
                 }
 
-                if (sendReply)
-                {
-                    client.SendInstantMessage(new GridInstantMessage(
-                            null, new UUID(im.toAgentID),
-                            "System", new UUID(im.fromAgentID),
-                            (byte)InstantMessageDialog.MessageFromAgent,
-                            reply.Message,
-                            false, new Vector3()));
+                if (im.dialog == (byte)InstantMessageDialog.MessageFromAgent) {
+                    IClientAPI client = omm.FindClient(new UUID(im.fromAgentID));
+                    if (client != null) {
+                        client.SendInstantMessage(new GridInstantMessage(
+                                null, new UUID(im.toAgentID),
+                                "System", new UUID(im.fromAgentID),
+                                (byte)InstantMessageDialog.MessageFromAgent,
+                                "User is not logged in. "+
+                                (success ? "Message saved." : "Message not saved"),
+                                false, new Vector3()));
+                    }
                 }
-*/
-// current opensim and osgrid compatible
-                client.SendInstantMessage(new GridInstantMessage(
-                        null, new UUID(im.toAgentID),
-                        "System", new UUID(im.fromAgentID),
-                        (byte)InstantMessageDialog.MessageFromAgent,
-                        "User is not logged in. "+
-                        (success ? "Message saved." : "Message not saved"),
-                        false, new Vector3()));
-// current opensim and osgrid compatible end
             }
         }
     }

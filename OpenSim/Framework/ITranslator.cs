@@ -38,6 +38,12 @@ namespace OpenSim.Framework
          * Return null if translation disabled.
          */
         ITranslatorClient ClientOpened (IClientAPI client);
+
+        /**
+         * Message came from chat or IM going to agent.
+         * Call finished to forward message on, passing null to not forward.
+         */
+        void WhatevToAgent (string agentID, ITranslatorFinished finished, string message);
     }
 
     public interface ITranslatorClient
