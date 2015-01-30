@@ -205,6 +205,13 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                 {
                     foreach (GridInstantMessage im in msglist)
                     {
+                        // If translator active, the message is already translated to this avatar's language
+                        // so don't try to translate it again.  tagging it with [[[--]]] will cause the
+                        // translator to just pass it through to the avatar without translation.
+                        if ((m_TranslatorModule != null) && !im.message.StartsWith ("[[[")) {
+                            im.message = "[[[--]]]" + im.message;
+                        }
+
                         if (im.dialog == (byte)InstantMessageDialog.InventoryOffered)
                             // send it directly or else the item will be given twice
                             client.SendInstantMessage(im);
@@ -254,7 +261,28 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             if (m_TranslatorModule == null) {
                 sm.Finished (im.message);
             } else {
-                m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.Finished, im.message);
+                int i = im.message.IndexOf ('|');
+                if (i < 0) {
+
+                    /*
+                     * Just a message body, translate in one piece.
+                     */
+                    m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.Finished, im.message);
+                } else {
+
+                    /*
+                     * Title and body, translate each separately in case of showoriginal mode.
+                     */
+                    string title = im.message.Substring (0, i);
+                    string body  = im.message.Substring (++ i);
+                    if (title.StartsWith ("[[[") && ((i = title.IndexOf ("]]]")) >= 0)) {
+                        body = title.Substring (0, i + 3) + body;
+                    }
+                    m_log.Debug ("[OfflineMessageModule]: UndeliveredMessage*: title=" + title);
+                    m_log.Debug ("[OfflineMessageModule]: UndeliveredMessage*: body=" + body);
+                    m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.FinTitle, title);
+                    m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.FinBody, body);
+                }
             }
         }
 
@@ -262,6 +290,53 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             public GridInstantMessage im;
             public OfflineMessageModule omm;
 
+            private int both;
+            private string xtitle;
+            private string xbody;
+
+            /**
+             * @brief Finished translating title of split title|body message.
+             */
+            public void FinTitle (string message)
+            {
+                lock (this) {
+                    m_log.Debug ("[OfflineMessageModule]: FinTitle*: message=" + message);
+                    xtitle = message.Replace ('\n', ' ');
+                    BothPartsFinished ();
+                }
+            }
+
+            /**
+             * @brief Finished translating body of split title|body message.
+             */
+            public void FinBody (string message)
+            {
+                lock (this) {
+                    m_log.Debug ("[OfflineMessageModule]: FinBody*: message=" + message);
+                    xbody = message;
+                    BothPartsFinished ();
+                }
+            }
+
+            /**
+             * @brief If both parts of split message are translated,
+             *        post the composite translation.
+             */
+            private void BothPartsFinished ()
+            {
+                if (++ both == 2) {
+                    if ((xtitle != null) && (xbody != null)) {
+                        Finished (xtitle + "|" + xbody);
+                    } else {
+                        Finished (null);
+                    }
+                }
+            }
+
+            /**
+             * @brief Both parts of split message translated,
+             *        or body-only message translated.
+             */
             public void Finished (string message)
             {
                 bool success = false;
@@ -288,4 +363,3 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
         }
     }
 }
-
