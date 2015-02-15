@@ -10,7 +10,10 @@
 *.pdb
 *.pidb
 *.dll.build
+*.dll.so
 *.dll
+*.exe
+*.exe.so
 *.log
 
 # Ignore .user and .suo files as these are user preference specific
