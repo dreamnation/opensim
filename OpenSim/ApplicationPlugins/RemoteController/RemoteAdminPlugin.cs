@@ -1612,11 +1612,11 @@ namespace OpenSim.ApplicationPlugins.RemoteController
                     bool mergeOar = false;
                     bool skipAssets = false;
 
-                    if ((string)requestData["merge"] == "true")
+                    if (requestData.Contains ("merge") && (requestData["merge"].ToString () == "true"))
                     {
                         mergeOar = true;
                     }
-                    if ((string)requestData["skip-assets"] == "true")
+                    if (requestData.Contains ("skip-assets") && (requestData["skip-assets"] == "true"))
                     {
                         skipAssets = true;
                     }
@@ -1712,9 +1712,9 @@ namespace OpenSim.ApplicationPlugins.RemoteController
                     options["home"] = (string)requestData["home"];
                 }
 
-                if ((string)requestData["noassets"] == "true")
+                if (requestData.Contains("noassets") && (requestData["noassets"].ToString () == "true"))
                 {
-                    options["noassets"] = (string)requestData["noassets"] ;
+                    options["noassets"] = "true";
                 }
 
                 if (requestData.Contains("perm"))
@@ -1722,9 +1722,9 @@ namespace OpenSim.ApplicationPlugins.RemoteController
                     options["checkPermissions"] = (string)requestData["perm"];
                 }
 
-                if ((string)requestData["all"] == "true")
+                if (requestData.Contains("all") && (requestData["all"].ToString () == "true"))
                 {
-                    options["all"] = (string)requestData["all"];
+                    options["all"] = "true";
                 }
 
                 IRegionArchiverModule archiver = scene.RequestModuleInterface<IRegionArchiverModule>();
