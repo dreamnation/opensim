@@ -139,7 +139,7 @@ namespace OpenSim.Server.Handlers.MapImage
                     GridRegion r = m_GridService.GetRegionByPosition(UUID.Zero, (int)Util.RegionToWorldLoc((uint)x), (int)Util.RegionToWorldLoc((uint)y));
                     if (r != null)
                     {
-                        if (r.ExternalEndPoint.Address.ToString() != ipAddr.ToString())
+                        if ((r.ExternalEndPoint.Address.ToString() != ipAddr.ToString()) && !IsLocalIPAddr (ipAddr))
                         {
                             m_log.WarnFormat("[MAP IMAGE HANDLER]: IP address {0} may be trying to impersonate region in IP {1}", ipAddr, r.ExternalEndPoint.Address);
                             return FailureResult("IP address of caller does not match IP address of registered region");
@@ -248,5 +248,13 @@ namespace OpenSim.Server.Handlers.MapImage
             return request.RemoteIPEndPoint.Address;
         }
 
+        private static bool IsLocalIPAddr (System.Net.IPAddress ipAddr)
+        {
+            System.Net.IPHostEntry host = System.Net.Dns.GetHostEntry (System.Net.Dns.GetHostName ());
+            foreach (System.Net.IPAddress ip in host.AddressList) {
+                if (ip.ToString () == ipAddr.ToString ()) return true;
+            }
+            return false;
+        }
     }
 }
