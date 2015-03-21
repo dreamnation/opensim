@@ -1609,17 +1609,8 @@ namespace OpenSim.ApplicationPlugins.RemoteController
 
                     string filename = (string) requestData["filename"];
                     
-                    bool mergeOar = false;
-                    bool skipAssets = false;
-
-                    if (requestData.Contains ("merge") && (requestData["merge"].ToString () == "true"))
-                    {
-                        mergeOar = true;
-                    }
-                    if (requestData.Contains ("skip-assets") && (requestData["skip-assets"] == "true"))
-                    {
-                        skipAssets = true;
-                    }
+                    bool mergeOar   = GetBoolean (requestData, "merge",       false);
+                    bool skipAssets = GetBoolean (requestData, "skip-assets", false);
 
                     IRegionArchiverModule archiver = scene.RequestModuleInterface<IRegionArchiverModule>();
                     Dictionary<string, object> archiveOptions = new Dictionary<string, object>();
@@ -1712,20 +1703,14 @@ namespace OpenSim.ApplicationPlugins.RemoteController
                     options["home"] = (string)requestData["home"];
                 }
 
-                if (requestData.Contains("noassets") && (requestData["noassets"].ToString () == "true"))
-                {
-                    options["noassets"] = "true";
-                }
+                options["noassets"] = GetBoolean (requestData, "noassets", false);
 
                 if (requestData.Contains("perm"))
                 {
                     options["checkPermissions"] = (string)requestData["perm"];
                 }
 
-                if (requestData.Contains("all") && (requestData["all"].ToString () == "true"))
-                {
-                    options["all"] = "true";
-                }
+                options["all"] = GetBoolean (requestData, "all", false);
 
                 IRegionArchiverModule archiver = scene.RequestModuleInterface<IRegionArchiverModule>();
 
@@ -2453,12 +2438,12 @@ namespace OpenSim.ApplicationPlugins.RemoteController
             return;
         }
 
-        private bool GetBoolean(Hashtable requestData, string tag, bool defaultValue)
+        private static bool GetBoolean(Hashtable requestData, string tag, bool defaultValue)
         {
             // If an access value has been provided, apply it.
             if (requestData.Contains(tag))
             {
-                switch (((string)requestData[tag]).ToLower())
+                switch (requestData[tag].ToString().ToLowerInvariant())
                 {
                     case "true" :
                     case "t" :
