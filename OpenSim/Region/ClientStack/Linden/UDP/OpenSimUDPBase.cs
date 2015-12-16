@@ -359,22 +359,10 @@ namespace OpenMetaverse
                 try
                 {
                     m_udpSocket.SendTo (buf.Data, 0, buf.DataLength, SocketFlags.None, buf.RemoteEndPoint);
-
-                    FakeUdpSendResult result = new FakeUdpSendResult ();
-                    result.asyncState = buf;
-                    m_udpSocket.EndSendTo(result);
                 }
                 catch (SocketException) { }
                 catch (ObjectDisposedException) { }
 //            }
-        }
-
-        private class FakeUdpSendResult : IAsyncResult {
-            public object asyncState;
-            public object AsyncState { get { return asyncState; } }
-            public WaitHandle AsyncWaitHandle { get { return null; } }
-            public bool CompletedSynchronously { get { return true; } }
-            public bool IsCompleted { get { return true; } }
         }
     }
 }
