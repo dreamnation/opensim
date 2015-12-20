@@ -83,6 +83,7 @@ namespace OpenSim.Capabilities.Handlers
                     items = new InventoryItemBase[itemsRequested.Count];                   
                     InventoryItemBase item = new InventoryItemBase();
                     item.Owner = m_agentID;
+                    i = 0;
                     foreach (UUID id in itemIDs)
                     {
                         item.ID = id;
@@ -94,6 +95,7 @@ namespace OpenSim.Capabilities.Handlers
             {
                 items = new InventoryItemBase[itemsRequested.Count];
                 InventoryItemBase item = new InventoryItemBase();
+                i = 0;
                 foreach (UUID id in itemIDs)
                 {
                     item.ID = id;
