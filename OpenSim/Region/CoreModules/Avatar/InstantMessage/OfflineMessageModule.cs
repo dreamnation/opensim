@@ -279,8 +279,6 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                     if (title.StartsWith ("[[[") && ((i = title.IndexOf ("]]]")) >= 0)) {
                         body = title.Substring (0, i + 3) + body;
                     }
-                    m_log.Debug ("[OfflineMessageModule]: UndeliveredMessage*: title=" + title);
-                    m_log.Debug ("[OfflineMessageModule]: UndeliveredMessage*: body=" + body);
                     m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.FinTitle, title);
                     m_TranslatorModule.WhatevToAgent (im.toAgentID.ToString (), sm.FinBody, body);
                 }
@@ -301,7 +299,6 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             public void FinTitle (string message)
             {
                 lock (this) {
-                    m_log.Debug ("[OfflineMessageModule]: FinTitle*: message=" + message);
                     xtitle = message.Replace ('\n', ' ');
                     BothPartsFinished ();
                 }
@@ -313,7 +310,6 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
             public void FinBody (string message)
             {
                 lock (this) {
-                    m_log.Debug ("[OfflineMessageModule]: FinBody*: message=" + message);
                     xbody = message;
                     BothPartsFinished ();
                 }
