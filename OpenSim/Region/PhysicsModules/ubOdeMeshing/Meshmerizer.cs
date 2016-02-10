@@ -404,6 +404,10 @@ namespace OpenSim.Region.PhysicsModule.ubODEMeshing
                         physicsParms = (OSDMap)map["physics_shape"]; // old asset format
                     else if (map.ContainsKey("physics_mesh"))
                         physicsParms = (OSDMap)map["physics_mesh"]; // new asset format
+                    else if (map.ContainsKey("medium_lod"))
+                        physicsParms = (OSDMap)map["medium_lod"]; // Use if present
+                    else if (map.ContainsKey("high_lod"))
+                        physicsParms = (OSDMap)map["high_lod"]; // Ultimative fallback
 
                     if (physicsParms != null)
                         usemesh = true;
