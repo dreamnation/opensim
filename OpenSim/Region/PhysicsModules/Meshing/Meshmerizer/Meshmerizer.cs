@@ -553,10 +553,10 @@ namespace OpenSim.Region.PhysicsModule.Meshing
 
                 OSD decodedMeshOsd = new OSD();
                 byte[] meshBytes = new byte[physSize];
-                System.Buffer.BlockCopy(primShape.SculptData, physOffset, meshBytes, 0, physSize);
-                //                        byte[] decompressed = new byte[physSize * 5];
                 try
                 {
+                    System.Buffer.BlockCopy(primShape.SculptData, physOffset, meshBytes, 0, physSize);
+                    //                        byte[] decompressed = new byte[physSize * 5];
                     decodedMeshOsd = DecompressOsd(meshBytes);
                 }
                 catch (Exception e)
