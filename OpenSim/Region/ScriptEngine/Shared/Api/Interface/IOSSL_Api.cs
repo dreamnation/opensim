@@ -487,5 +487,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_String osRequestSecureURL(LSL_List options);
         void osCollisionSound(string impact_sound, double impact_volume);
         void osVolumeDetect(int detect);
+
+        /// <summary>
+        /// Control translation of messages to/from script owner's client
+        /// See ITranslatorModule.ScriptControl() for details
+        /// </summary>
+        /// <returns>list</returns>
+        LSL_List osTranslatorControl (LSL_String cmd, LSL_List args);
     }
 }

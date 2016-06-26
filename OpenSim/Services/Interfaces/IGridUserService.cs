@@ -50,6 +50,8 @@ namespace OpenSim.Services.Interfaces
         public DateTime Login;
         public DateTime Logout;
 
+        public string LangCode;
+
         public GridUserInfo() {}
 
         public GridUserInfo(Dictionary<string, object> kvp)
@@ -78,6 +80,7 @@ namespace OpenSim.Services.Interfaces
             if (kvp.ContainsKey("Online"))
                 Boolean.TryParse(kvp["Online"].ToString(), out Online);
 
+            LangCode = kvp.ContainsKey("LangCode") ? kvp["LangCode"].ToString() : "";
         }
 
         public virtual Dictionary<string, object> ToKeyValuePairs()
@@ -96,6 +99,8 @@ namespace OpenSim.Services.Interfaces
             result["Online"] = Online.ToString();
             result["Login"] = Login.ToString();
             result["Logout"] = Logout.ToString();
+
+            result["LangCode"] = LangCode;
 
             return result;
         }
@@ -128,6 +133,8 @@ namespace OpenSim.Services.Interfaces
         /// <param name="lastLookAt">Normalized look direction</param>
         /// <returns>True if the user's last position was successfully updated, otherwise false</returns>
         bool SetLastPosition(string userID, UUID sessionID, UUID regionID, Vector3 lastPosition, Vector3 lastLookAt);
+
+        bool SetLangCode(string userID, string langCode);
 
         GridUserInfo GetGridUserInfo(string userID);
         GridUserInfo[] GetGridUserInfo(string[] userID);
