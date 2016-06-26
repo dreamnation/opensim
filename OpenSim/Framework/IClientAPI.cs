@@ -773,6 +773,8 @@ namespace OpenSim.Framework
 
         int NextAnimationSequenceNumber {get; set;}
 
+        ITranslatorClient TranslatorClient { get; }
+
         // [Obsolete("LLClientView Specific - Circuits are unique to LLClientView")]
         uint CircuitCode { get; }
 

@@ -135,6 +135,19 @@ namespace OpenSim.Services.Connectors
             return Set(sendData, userID, regionID, position, lookAt);
         }
 
+        public bool SetLangCode(string userID, string langCode)
+        {
+            Dictionary<string, object> sendData = new Dictionary<string, object>();
+            //sendData["SCOPEID"] = scopeID.ToString();
+            sendData["VERSIONMIN"] = ProtocolVersions.ClientProtocolVersionMin.ToString();
+            sendData["VERSIONMAX"] = ProtocolVersions.ClientProtocolVersionMax.ToString();
+            sendData["METHOD"] = "setlangcode";
+            sendData["UserID"] = userID;
+            sendData["LangCode"] = langCode;
+
+            return Set(sendData);
+        }
+
         public GridUserInfo GetGridUserInfo(string userID)
         {
             Dictionary<string, object> sendData = new Dictionary<string, object>();
@@ -156,7 +169,11 @@ namespace OpenSim.Services.Connectors
             sendData["RegionID"] = regionID.ToString();
             sendData["Position"] = position.ToString();
             sendData["LookAt"] = lookAt.ToString();
+            return Set (sendData);
+        }
 
+        private bool Set(Dictionary<string, object> sendData)
+        {
             string reqString = ServerUtils.BuildQueryString(sendData);
             string uri = m_ServerURI + "/griduser";
             // m_log.DebugFormat("[GRID USER CONNECTOR]: queryString = {0}", reqString);

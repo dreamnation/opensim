@@ -463,6 +463,11 @@ namespace OpenSim.Tests.Common
             set { }
         }
 
+        public ITranslatorClient TranslatorClient
+        {
+            get { return null; }
+        }
+
         private uint m_circuitCode;
 
         public uint CircuitCode

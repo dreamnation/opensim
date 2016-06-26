@@ -863,6 +863,8 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
 
     public class ListenerInfo : IWorldCommListenerInfo
     {
+        private const int PUBLIC_CHANNEL = 0;  // from scripts
+
         /// <summary>
         /// Listener is active or not
         /// </summary>
@@ -1011,7 +1013,14 @@ namespace OpenSim.Region.CoreModules.Scripting.WorldComm
 
         public string GetMessage()
         {
-            return m_message;
+            // messages on the public channel might have language prefix
+            // so trim it off before delivering it to script
+            string m = m_message;
+            if ((m_channel == PUBLIC_CHANNEL) && m.StartsWith ("[[[")) {
+                int i = m.IndexOf ("]]]");
+                if (i >= 0) m = m.Substring (i + 3);
+            }
+            return m;
         }
 
         public string GetName()

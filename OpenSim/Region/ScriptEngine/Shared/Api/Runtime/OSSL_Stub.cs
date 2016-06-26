@@ -1416,5 +1416,10 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         {
             m_OSSL_Functions.osResetAllScripts(allLinkSet);
         }
+
+        public LSL_List osTranslatorControl (LSL_String cmd, LSL_List args)
+        {
+            return m_OSSL_Functions.osTranslatorControl (cmd, args);
+        }
     }
 }

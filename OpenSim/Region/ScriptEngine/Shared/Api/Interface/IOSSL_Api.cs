@@ -558,5 +558,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
         LSL_Rotation osSlerp(LSL_Rotation a, LSL_Rotation b, LSL_Float amount);
 
         void osResetAllScripts(LSL_Integer AllLinkset);
+
+        /// <summary>
+        /// Control translation of messages to/from script owner's client
+        /// See ITranslatorModule.ScriptControl() for details
+        /// </summary>
+        /// <returns>list</returns>
+        LSL_List osTranslatorControl (LSL_String cmd, LSL_List args);
     }
 }

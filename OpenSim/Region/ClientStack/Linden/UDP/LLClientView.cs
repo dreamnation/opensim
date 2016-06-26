@@ -394,6 +394,13 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         protected IAssetService m_assetService;
 
         protected bool m_supportViewerCache = false;
+
+        private const int PUBLIC_CHANNEL = 0;
+        private bool translatorModuleInitted;
+        private ITranslatorModule translatorModule;
+        private ITranslatorClient translatorClient;
+        private object translatorLock = new object ();
+
         #endregion Class Members
 
         #region Properties
@@ -501,6 +508,22 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         public bool SendLogoutPacketWhenClosing { set { m_SendLogoutPacketWhenClosing = value; } }
 
+
+        public ITranslatorClient TranslatorClient
+        {
+            get {
+                lock (translatorLock) {
+                    if (!translatorModuleInitted) {
+                        translatorModuleInitted = true;
+                        translatorModule = Scene.RequestModuleInterface<ITranslatorModule> ();
+                        if (translatorModule != null) {
+                            translatorClient = translatorModule.ClientOpened (this);
+                        }
+                    }
+                }
+                return translatorClient;
+            }
+        }
 
         #endregion Properties
 
@@ -620,6 +643,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 OutPacket(disable, ThrottleOutPacketType.Unknown);
             }
 
+
+            // Shutdown the translator
+            if (translatorClient != null) {
+                translatorClient.ClientClosed ();
+            }
 
             // Fire the callback for this connection closing
             if (OnConnectionClosed != null)
@@ -1062,47 +1090,79 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         public void SendChatMessage(string message, byte chattype, Vector3 fromPos, string fromName,
             UUID sourceID, UUID ownerID, byte sourcetype, byte audible)
         {
-            UDPPacketBuffer buf = m_udpServer.GetNewUDPBuffer(m_udpClient.RemoteEndPoint);
-            byte[] data = buf.Data;
-
-            //setup header
-            Buffer.BlockCopy(ChatFromSimulatorHeader, 0, data, 0, 10);
-
-            byte[] fname = Util.StringToBytes256(fromName);
-            int len = fname.Length;
-            int pos = 11;
-            if (len == 0)
-                data[10] = 0;
-            else
-            {
-                data[10] = (byte)len;
-                Buffer.BlockCopy(fname, 0, data, 11, len);
-                pos += len;
+            ChatToClient c2c = new ChatToClient ();
+            c2c.chattype   = chattype;
+            c2c.fromPos    = fromPos;
+            c2c.fromName   = fromName;
+            c2c.sourceID   = sourceID;
+            c2c.ownerID    = ownerID;
+            c2c.sourcetype = sourcetype;
+            c2c.audible    = audible;
+            c2c.client     = this;
+            ITranslatorClient xc = TranslatorClient;
+            if (xc == null) {
+                c2c.Finished (message);
+            } else {
+                xc.WhatevToClient (c2c.Finished, message);
             }
+        }
 
-            sourceID.ToBytes(data, pos); pos += 16;
-            ownerID.ToBytes(data, pos); pos += 16;
-            data[pos++] = sourcetype;
-            data[pos++] = chattype;
-            data[pos++] = audible;
-            fromPos.ToBytes(data, pos); pos += 12;
+        private class ChatToClient {
+            public LLClientView client;
 
-            byte[] msg = Util.StringToBytes1024(message);
-            len = msg.Length;
-            if (len == 0)
+            public byte chattype;
+            public Vector3 fromPos;
+            public string fromName;
+            public UUID sourceID;
+            public UUID ownerID;
+            public byte sourcetype;
+            public byte audible;
+
+            // translator has finished translating message to client's language, send it to client
+            public void Finished (string message)
             {
-                data[pos++] = 0;
-                data[pos++] = 0;
-            }
-            else
-            {
-                data[pos++] = (byte)len;
-                data[pos++] = (byte)(len >> 8);
-                Buffer.BlockCopy(msg, 0, data, pos, len); pos += len;
-            }
+                UDPPacketBuffer buf = client.m_udpServer.GetNewUDPBuffer(client.m_udpClient.RemoteEndPoint);
+                byte[] data = buf.Data;
 
-            buf.DataLength = pos;
-            m_udpServer.SendUDPPacket(m_udpClient, buf, ThrottleOutPacketType.Unknown);
+                //setup header
+                Buffer.BlockCopy(ChatFromSimulatorHeader, 0, data, 0, 10);
+
+                byte[] fname = Util.StringToBytes256(fromName);
+                int len = fname.Length;
+                int pos = 11;
+                if (len == 0)
+                    data[10] = 0;
+                else
+                {
+                    data[10] = (byte)len;
+                    Buffer.BlockCopy(fname, 0, data, 11, len);
+                    pos += len;
+                }
+
+                sourceID.ToBytes(data, pos); pos += 16;
+                ownerID.ToBytes(data, pos); pos += 16;
+                data[pos++] = sourcetype;
+                data[pos++] = chattype;
+                data[pos++] = audible;
+                fromPos.ToBytes(data, pos); pos += 12;
+
+                byte[] msg = Util.StringToBytes1024(message);
+                len = msg.Length;
+                if (len == 0)
+                {
+                    data[pos++] = 0;
+                    data[pos++] = 0;
+                }
+                else
+                {
+                    data[pos++] = (byte)len;
+                    data[pos++] = (byte)(len >> 8);
+                    Buffer.BlockCopy(msg, 0, data, pos, len); pos += len;
+                }
+
+                buf.DataLength = pos;
+                client.m_udpServer.SendUDPPacket(client.m_udpClient, buf, ThrottleOutPacketType.Unknown);
+            }
         }
 
         /// <summary>
@@ -1125,65 +1185,67 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             if (!m_scene.Permissions.CanInstantMessage(fromAgentID, toAgentID))
                 return;
 
-            UDPPacketBuffer buf = m_udpServer.GetNewUDPBuffer(m_udpClient.RemoteEndPoint);
-            byte[] data = buf.Data;
-
-            //setup header
-            Buffer.BlockCopy(ImprovedInstantMessageHeader, 0, data, 0, 10);
-
-            //agentdata block
-            fromAgentID.ToBytes(data, 10); // 26
-            UUID.Zero.ToBytes(data, 26); // 42  sessionID  zero?? TO check
-
-            int pos = 42;
-
-            //MessageBlock
-            data[pos++] = (byte)((im.fromGroup) ? 1 : 0);
-            toAgentID.ToBytes(data, pos); pos += 16;
-            Utils.UIntToBytesSafepos(im.ParentEstateID, data, pos); pos += 4;
-            (new UUID(im.RegionID)).ToBytes(data, pos); pos += 16;
-            (im.Position).ToBytes(data, pos); pos += 12;
-            data[pos++] = im.offline;
-            data[pos++] = im.dialog;
-
-            // this is odd
-            if (im.imSessionID == UUID.Zero.Guid)
-                (fromAgentID ^ toAgentID).ToBytes(data, pos);
-            else
-                (new UUID(im.imSessionID)).ToBytes(data, pos);
-
-            pos += 16;
-
-            Utils.UIntToBytesSafepos(im.timestamp, data, pos); pos += 4;
-
-            byte[] tmp = Util.StringToBytes256(im.fromAgentName);
-            int len = tmp.Length;
-            data[pos++] = (byte)len;
-            if(len > 0)
-                Buffer.BlockCopy(tmp, 0, data, pos, len); pos += len;
-
-            tmp = Util.StringToBytes1024(im.message);
-            len = tmp.Length;
-            if (len == 0)
-            {
-                data[pos++] = 0;
-                data[pos++] = 0;
+            GimToClient g2c = new GimToClient ();
+            g2c.im          = im;
+            g2c.fromAgentID = fromAgentID;
+            g2c.toAgentID   = toAgentID;
+            g2c.client      = this;
+            ITranslatorClient xc = TranslatorClient;
+            if (xc == null) {
+                g2c.Finished (im.message);
+            } else {
+                xc.WhatevToClient (g2c.Finished, im.message);
             }
-            else
+        }
+
+        private class GimToClient {
+            public LLClientView client;
+
+            public GridInstantMessage im;
+            public UUID fromAgentID;
+            public UUID toAgentID;
+
+            // translator has finished translating message to client's language, send it to client
+            public void Finished (string message)
             {
+                UDPPacketBuffer buf = client.m_udpServer.GetNewUDPBuffer(client.m_udpClient.RemoteEndPoint);
+                byte[] data = buf.Data;
+
+                //setup header
+                Buffer.BlockCopy(ImprovedInstantMessageHeader, 0, data, 0, 10);
+
+                //agentdata block
+                fromAgentID.ToBytes(data, 10); // 26
+                UUID.Zero.ToBytes(data, 26); // 42  sessionID  zero?? TO check
+
+                int pos = 42;
+
+                //MessageBlock
+                data[pos++] = (byte)((im.fromGroup) ? 1 : 0);
+                toAgentID.ToBytes(data, pos); pos += 16;
+                Utils.UIntToBytesSafepos(im.ParentEstateID, data, pos); pos += 4;
+                (new UUID(im.RegionID)).ToBytes(data, pos); pos += 16;
+                (im.Position).ToBytes(data, pos); pos += 12;
+                data[pos++] = im.offline;
+                data[pos++] = im.dialog;
+
+                // this is odd
+                if (im.imSessionID == UUID.Zero.Guid)
+                    (fromAgentID ^ toAgentID).ToBytes(data, pos);
+                else
+                    (new UUID(im.imSessionID)).ToBytes(data, pos);
+
+                pos += 16;
+
+                Utils.UIntToBytesSafepos(im.timestamp, data, pos); pos += 4;
+
+                byte[] tmp = Util.StringToBytes256(im.fromAgentName);
+                int len = tmp.Length;
                 data[pos++] = (byte)len;
-                data[pos++] = (byte)(len >> 8);
-                Buffer.BlockCopy(tmp, 0, data, pos, len); pos += len;
-            }
+                if(len > 0)
+                    Buffer.BlockCopy(tmp, 0, data, pos, len); pos += len;
 
-            tmp = im.binaryBucket;
-            if(tmp == null)
-            {
-                data[pos++] = 0;
-                data[pos++] = 0;
-            }
-            else
-            {
+                tmp = Util.StringToBytes1024(message);
                 len = tmp.Length;
                 if (len == 0)
                 {
@@ -1196,18 +1258,40 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                     data[pos++] = (byte)(len >> 8);
                     Buffer.BlockCopy(tmp, 0, data, pos, len); pos += len;
                 }
+
+                tmp = im.binaryBucket;
+                if(tmp == null)
+                {
+                    data[pos++] = 0;
+                    data[pos++] = 0;
+                }
+                else
+                {
+                    len = tmp.Length;
+                    if (len == 0)
+                    {
+                        data[pos++] = 0;
+                        data[pos++] = 0;
+                    }
+                    else
+                    {
+                        data[pos++] = (byte)len;
+                        data[pos++] = (byte)(len >> 8);
+                        Buffer.BlockCopy(tmp, 0, data, pos, len); pos += len;
+                    }
+                }
+
+                //EstateBlock does not seem in use TODO
+                //Utils.UIntToBytesSafepos(m_scene.RegionInfo.EstateSettings.EstateID, data, pos); pos += 4;
+                data[pos++] = 0;
+                data[pos++] = 0;
+                data[pos++] = 0;
+                data[pos++] = 0;
+
+                buf.DataLength = pos;
+                //m_udpServer.SendUDPPacket(m_udpClient, buf, ThrottleOutPacketType.Unknown, null, false, true);
+                client.m_udpServer.SendUDPPacket(client.m_udpClient, buf, ThrottleOutPacketType.Unknown);
             }
-
-            //EstateBlock does not seem in use TODO
-            //Utils.UIntToBytesSafepos(m_scene.RegionInfo.EstateSettings.EstateID, data, pos); pos += 4;
-            data[pos++] = 0;
-            data[pos++] = 0;
-            data[pos++] = 0;
-            data[pos++] = 0;
-
-            buf.DataLength = pos;
-            //m_udpServer.SendUDPPacket(m_udpClient, buf, ThrottleOutPacketType.Unknown, null, false, true);
-            m_udpServer.SendUDPPacket(m_udpClient, buf, ThrottleOutPacketType.Unknown);
         }
 
         static private readonly byte[] GenericMessageHeader = new byte[] {
@@ -8625,11 +8709,33 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 args.Sender = this;
                 args.SenderUUID = this.AgentId;
 
-                ChatMessage handlerChatFromClient = OnChatFromClient;
-                if (handlerChatFromClient != null)
-                    handlerChatFromClient(this, args);
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    CallOnChatFromClient (args);
+                } else {
+                    ClientToChat c2c = new ClientToChat ();
+                    c2c.client = this;
+                    c2c.args   = args;
+                    xc.ClientToWhatev (c2c.Finished, args.Message, args.Channel);
+                }
             }
             return true;
+        }
+
+        private class ClientToChat {
+            public LLClientView client;
+            public OSChatMessage args;
+
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    args.Message = message;
+                    client.CallOnChatFromClient (args);
+                }
+            }
         }
 
         private bool HandlerAvatarPropertiesUpdate(IClientAPI sender, Packet Pack)
@@ -8687,12 +8793,20 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 args.Position = new Vector3();
                 args.Scene = Scene;
                 args.Sender = this;
-                ChatMessage handlerChatFromClient2 = OnChatFromClient;
-                if (handlerChatFromClient2 != null)
-                    handlerChatFromClient2(this, args);
+                CallOnChatFromClient(args);
             }
 
             return true;
+        }
+
+        /**
+         * Take a message just received from the client and spray it into the server.
+         */
+        private void CallOnChatFromClient(OSChatMessage args)
+        {
+            ChatMessage handlerChatFromClient2 = OnChatFromClient;
+            if (handlerChatFromClient2 != null)
+                handlerChatFromClient2(this, args);
         }
 
         private bool HandlerImprovedInstantMessage(IClientAPI sender, Packet Pack)
@@ -8724,10 +8838,37 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         msgpack.MessageBlock.BinaryBucket,
                         true);
 
-                handlerInstantMessage(this, im);
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    handlerInstantMessage(this, im);
+                } else {
+                    ClientToGim c2g = new ClientToGim ();
+                    c2g.client = this;
+                    c2g.im     = im;
+                    c2g.him    = handlerInstantMessage;
+                    xc.ClientToWhatev (c2g.Finished, IMmessage, PUBLIC_CHANNEL);
+                }
+
             }
             return true;
 
+        }
+
+        private class ClientToGim {
+            public GridInstantMessage im;
+            public ImprovedInstantMessage him;
+            public LLClientView client;
+
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    im.message = message;
+                    him (client, im);
+                }
+            }
         }
 
         private bool HandlerAcceptFriendship(IClientAPI sender, Packet Pack)

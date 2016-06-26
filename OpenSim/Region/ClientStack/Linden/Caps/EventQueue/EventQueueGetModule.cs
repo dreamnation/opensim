@@ -618,15 +618,67 @@ namespace OpenSim.Region.ClientStack.Linden
                                          uint timeStamp, bool offline, int parentEstateID, Vector3 position,
                                          uint ttl, UUID transactionID, bool fromGroup, byte[] binaryBucket)
         {
-            OSD item = EventQueueHelper.ChatterboxInvitation(sessionID, sessionName, fromAgent, message, toAgent, fromName, dialog,
-                                                             timeStamp, offline, parentEstateID, position, ttl, transactionID,
-                                                             fromGroup, binaryBucket);
-            Enqueue(item, toAgent);
+            GroupToClient g2c  = new GroupToClient ();
+            g2c.eqgm           = this;
+            g2c.sessionID      = sessionID;
+            g2c.sessionName    = sessionName;
+            g2c.fromAgent      = fromAgent;
+            g2c.toAgent        = toAgent;
+            g2c.fromName       = fromName;
+            g2c.dialog         = dialog;
+            g2c.timeStamp      = timeStamp;
+            g2c.offline        = offline;
+            g2c.parentEstateID = parentEstateID;
+            g2c.position       = position;
+            g2c.ttl            = ttl;
+            g2c.transactionID  = transactionID;
+            g2c.fromGroup      = fromGroup;
+            g2c.binaryBucket   = binaryBucket;
+
+            ITranslatorClient xc = null;
+            IClientAPI client;
+            if (m_scene.TryGetClient (toAgent, out client)) {
+                xc = client.TranslatorClient;
+            }
+            if (xc == null) {
+                g2c.Finished (message);
+            } else {
+                xc.WhatevToClient (g2c.Finished, message);
+            }
             //m_log.InfoFormat("########### eq ChatterboxInvitation #############\n{0}", item);
 
         }
 
-        public void ChatterBoxSessionAgentListUpdates(UUID sessionID, UUID fromAgent, UUID toAgent, bool canVoiceChat,
+        private class GroupToClient {
+            public EventQueueGetModule eqgm;
+
+            public UUID sessionID;
+            public string sessionName;
+            public UUID fromAgent;
+            public UUID toAgent;
+            public string fromName;
+            public byte dialog;
+            public uint timeStamp;
+            public bool offline;
+            public int parentEstateID;
+            public Vector3 position;
+            public uint ttl;
+            public UUID transactionID;
+            public bool fromGroup;
+            public byte[] binaryBucket;
+
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    OSD item = EventQueueHelper.ChatterboxInvitation(sessionID, sessionName, fromAgent, message, toAgent, fromName, dialog, 
+                                                                     timeStamp, offline, parentEstateID, position, ttl, transactionID, 
+                                                                     fromGroup, binaryBucket);
+                    eqgm.Enqueue(item, toAgent);
+                }
+            }
+        }
+
+        public void ChatterBoxSessionAgentListUpdates(UUID sessionID, UUID fromAgent, UUID toAgent, bool canVoiceChat, 
                                                       bool isModerator, bool textMute, bool isEnterorLeave)
         {
             OSD item = EventQueueHelper.ChatterBoxSessionAgentListUpdates(sessionID, fromAgent, canVoiceChat,

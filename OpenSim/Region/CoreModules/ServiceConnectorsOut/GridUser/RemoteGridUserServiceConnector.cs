@@ -176,6 +176,22 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.GridUser
             return false;
         }
 
+        public bool SetLangCode(string userID, string langCode)
+        {
+            if (m_RemoteConnector.SetLangCode(userID, langCode))
+            {
+                // Update the cache too
+                GridUserInfo info = null;
+                if (m_Infos.TryGetValue(userID, out info))
+                {
+                    info.LangCode = langCode;
+                }
+                return true;
+            }
+
+            return false;
+        }
+
         public GridUserInfo GetGridUserInfo(string userID)
         {
             GridUserInfo info = null;

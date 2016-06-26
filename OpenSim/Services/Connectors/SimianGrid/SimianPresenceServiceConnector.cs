@@ -309,6 +309,11 @@ namespace OpenSim.Services.Connectors.SimianGrid
             return UpdateSession(sessionID, regionID, lastPosition, lastLookAt);
         }
 
+        public bool SetLangCode(string userID, string langCode)
+        {
+            throw new NotSupportedException ("SetLangCode");
+        }
+
         public GridUserInfo GetGridUserInfo(string user)
         {
             // m_log.DebugFormat("[SIMIAN PRESENCE CONNECTOR]: Requesting session data for agent " + user);

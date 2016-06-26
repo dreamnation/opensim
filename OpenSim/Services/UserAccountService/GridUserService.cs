@@ -184,6 +184,8 @@ namespace OpenSim.Services.UserAccountService
             info.Login = Util.ToDateTime(Convert.ToInt32(d.Data["Login"]));
             info.Logout = Util.ToDateTime(Convert.ToInt32(d.Data["Logout"]));
 
+            info.LangCode = d.Data["LangCode"];
+
             return info;
         }
 
@@ -270,6 +272,21 @@ namespace OpenSim.Services.UserAccountService
             d.Data["LastRegionID"] = regionID.ToString();
             d.Data["LastPosition"] = lastPosition.ToString();
             d.Data["LastLookAt"] = lastLookAt.ToString();
+
+            return m_Database.Store(d);
+        }
+
+        public bool SetLangCode(string userID, string langCode)
+        {
+            GridUserData d = GetGridUserData(userID);
+
+            if (d == null)
+            {
+                d = new GridUserData();
+                d.UserID = userID;
+            }
+
+            d.Data["LangCode"] = langCode;
 
             return m_Database.Store(d);
         }

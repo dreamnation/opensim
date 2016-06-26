@@ -169,6 +169,11 @@ namespace OpenSim.Region.CoreModules.ServiceConnectorsOut.GridUser
             return m_GridUserService.SetLastPosition(userID, sessionID, regionID, lastPosition, lastLookAt);
         }
 
+        public bool SetLangCode(string userID, string langCode)
+        {
+            return m_GridUserService.SetLangCode(userID, langCode);
+        }
+
         public GridUserInfo GetGridUserInfo(string userID)
         {
             return m_GridUserService.GetGridUserInfo(userID);

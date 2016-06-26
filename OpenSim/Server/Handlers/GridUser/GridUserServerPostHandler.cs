@@ -87,6 +87,8 @@ namespace OpenSim.Server.Handlers.GridUser
                         return SetHome(request);
                     case "setposition":
                         return SetPosition(request);
+                    case "setlangcode":
+                        return SetLangCode(request);
                     case "getgriduserinfo":
                         return GetGridUserInfo(request);
                     case "getgriduserinfos":
@@ -171,6 +173,17 @@ namespace OpenSim.Server.Handlers.GridUser
             if (m_GridUserService.SetLastPosition(user, UUID.Zero, region, position, look))
                 return SuccessResult();
 
+            return FailureResult();
+        }
+
+        byte[] SetLangCode(Dictionary<string, object> request)
+        {
+            string userID   = request.ContainsKey("UserID")   ? request["UserID"].ToString()   : "";
+            string langCode = request.ContainsKey("LangCode") ? request["LangCode"].ToString() : "";
+
+            if ((userID != null) && (langCode != null) && m_GridUserService.SetLangCode(userID, langCode)) {
+                return SuccessResult();
+            }
             return FailureResult();
         }
 

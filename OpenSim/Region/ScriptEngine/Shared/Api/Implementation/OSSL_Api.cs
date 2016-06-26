@@ -5675,7 +5675,22 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 m_UrlModule.ScriptRemoved(me);
 
             m_ScriptEngine.ApiResetScript(me);
+        }
 
+        public LSL_List osTranslatorControl (LSL_String cmd, LSL_List args)
+        {
+            CheckThreatLevel (ThreatLevel.VeryLow, "osTranslatorControl");
+            m_host.AddScriptLPS(1);
+
+            ScenePresence presence = World.GetScenePresence (m_host.OwnerID);
+            if ((presence != null) && !presence.IsChildAgent) {
+                IClientAPI client = presence.ControllingClient;
+                ITranslatorClient tc = client.TranslatorClient;
+                if (tc != null) {
+                    return new LSL_List (tc.ScriptControl (this, cmd, args.Data));
+                }
+            }
+            return new LSL_List (new object[0]);
         }
     }
 }
