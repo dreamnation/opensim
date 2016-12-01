@@ -211,8 +211,8 @@ namespace OpenSim.Region.PhysicsModule.ubOde
 
                 if (vertexCount == 0 || indexCount == 0)
                 {
-                    m_log.WarnFormat("[PHYSICS]: Invalid mesh data on prim {0} mesh UUID {1}",
-                        repData.actor.Name, repData.pbs.SculptTexture.ToString());
+                    m_log.WarnFormat("[PHYSICS]: Invalid mesh data on prim {0} mesh UUID {1} at {2}",
+                        repData.actor.Name, repData.pbs.SculptTexture.ToString(), repData.actor.Position.ToString());
                     repData.meshState = MeshState.MeshFailed;
                     repData.hasOBB = false;
                     repData.mesh = null;
@@ -931,12 +931,12 @@ namespace OpenSim.Region.PhysicsModule.ubOde
                     m_worker.AssetLoaded(repData);
                 }
                 else
-                    m_log.WarnFormat("[PHYSICS]: asset provider returned invalid mesh data for prim {0} asset UUID {1}.",
-                        repData.actor.Name, asset.ID.ToString());
+                    m_log.WarnFormat("[PHYSICS]: asset provider returned invalid mesh data for prim {0} asset UUID {1} at {2}.",
+                        repData.actor.Name, asset.ID.ToString(), repData.actor.Position.ToString());
             }
             else
-                m_log.WarnFormat("[PHYSICS]: asset provider returned null asset for mesh of prim {0}.",
-                    repData.actor.Name);
+                m_log.WarnFormat("[PHYSICS]: asset provider returned null asset for mesh of prim {0} at {1}.",
+                    repData.actor.Name, repData.actor.Position.ToString());
         }
     }
 }
