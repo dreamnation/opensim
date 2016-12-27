@@ -1460,10 +1460,16 @@ namespace OpenSim.Data.MySQL
                     );
             }
 
-            if (!(row["DynAttrs"] is System.DBNull))
-                prim.DynAttrs = DAMap.FromXml((string)row["DynAttrs"]);
-            else
+            if (!(row["DynAttrs"] is System.DBNull)) {
+                try {
+                    prim.DynAttrs = DAMap.FromXml((string)row["DynAttrs"]);
+                } catch (Exception e) {
+                    m_log.Error ("[MySQLSimulationData]: DynAttrs error prim " + prim.UUID + ": ", e);
+                    throw;
+                }
+            } else {
                 prim.DynAttrs = new DAMap();
+            }
 
             if (!(row["KeyframeMotion"] is DBNull))
             {
