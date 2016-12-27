@@ -163,8 +163,7 @@ namespace OpenSim.Framework.Servers
             }
             catch(Exception e)
             {
-                m_log.FatalFormat("Fatal error: {0}",
-                    (e.Message == null || e.Message == String.Empty) ? "Unknown reason":e.Message );
+                m_log.Fatal ("FATAL ERROR: ", e);
                 Environment.Exit(1);
             }
 

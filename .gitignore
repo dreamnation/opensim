@@ -54,6 +54,7 @@ bin/ScriptEngines/*/*.dll
 bin/ScriptEngines/*/*.state
 bin/*.maddin
 bin/*.exe
+bin/*.exe.so
 bin/*.ini
 bin/j2kDecodeCache
 bin/Physics*
