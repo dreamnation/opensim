@@ -254,9 +254,14 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
                     return;
             }
 
+            Scene scene = FindScene(new UUID(im.fromAgentID));
+            if (scene == null)
+                scene = m_SceneList[0];
+
             SaveMessage sm = new SaveMessage ();
             sm.im  = im;
             sm.omm = this;
+            sm.scene = scene;
 
             if (m_TranslatorModule == null) {
                 sm.Finished (im.message);
@@ -289,6 +294,7 @@ namespace OpenSim.Region.CoreModules.Avatar.InstantMessage
         private class SaveMessage {
             public GridInstantMessage im;
             public OfflineMessageModule omm;
+            public Scene scene;
 
             private int both;
             private string xtitle;
