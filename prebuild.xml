@@ -1542,7 +1542,7 @@
       <Reference name="System.Data"/>
       <Reference name="System.Xml"/>
       <Reference name="OpenSim.Framework"/>
-	  <Reference name="Mono.Addins" path="../../../../bin/"/>
+      <Reference name="Mono.Addins" path="../../../../bin/"/>
 
       <Files>
         <Match pattern="*.cs" recurse="true">
@@ -1688,7 +1688,7 @@
       <Reference name="OpenSim.Region.Framework"/>
       <Reference name="OpenSim.Region.PhysicsModules.SharedBase"/>
       <Reference name="OpenSim.Region.PhysicsModules.ConvexDecompositionDotNet"/>
-	  <Reference name="Mono.Addins" path="../../../../bin/"/>
+      <Reference name="Mono.Addins" path="../../../../bin/"/>
       <Reference name="log4net" path="../../../../bin/"/>
 
       <Files>
@@ -1721,7 +1721,7 @@
       <Reference name="OpenSim.Framework"/>
       <Reference name="OpenSim.Framework.Console"/>
       <Reference name="OpenSim.Region.PhysicsModules.SharedBase"/>
-	  <Reference name="OpenSim.Region.Framework"/>
+      <Reference name="OpenSim.Region.Framework"/>
       <Reference name="OpenSim.Region.PhysicsModules.ConvexDecompositionDotNet"/>
       <Reference name="Mono.Addins" path="../../../../bin/"/>
       <Reference name="log4net" path="../../../../bin/"/>
@@ -1980,7 +1980,7 @@
       <Reference name="OpenSim.Framework.Console"/>
       <Reference name="OpenMetaverseTypes" path="../../../bin/"/>
       <Reference name="OpenMetaverse" path="../../../bin/"/>
-	  <Reference name="OpenMetaverse.StructuredData" path="../../../bin/"/>
+      <Reference name="OpenMetaverse.StructuredData" path="../../../bin/"/>
       <Reference name="log4net" path="../../../bin/"/>
       <Reference name="Mono.Addins" path="../../../bin/"/>
       <Reference name="Npgsql" path="../../../bin/"/>
@@ -2130,7 +2130,7 @@
       <Reference name="OpenSim.Region.CoreModules"/>
       <Reference name="OpenSim.Region.PhysicsModules.SharedBase"/>
       <Reference name="OpenSim.Services.Interfaces"/>
-	  <Reference name="OpenSim.Services.Connectors"/>
+      <Reference name="OpenSim.Services.Connectors"/>
       <Reference name="OpenSim.Region.ScriptEngine.Shared"/>
       <Reference name="OpenSim.Region.ScriptEngine.Shared.Api.Runtime"/>
       <Reference name="Nini" path="../../../../../../bin/"/>
@@ -3290,6 +3290,32 @@
       <Reference name="OpenSim.Services.Interfaces"/>
       <Reference name="OpenSim.Services.AvatarService"/>
       <Reference name="OpenSim.Tests.Common"/>
+      <Files>
+        <Match pattern="*.cs" recurse="false"/>
+      </Files>
+    </Project>
+
+    <Project frameworkVersion="v4_0" name="OpenSim.Region.Optional.Modules.World.NPC" path="OpenSim/Region/OptionalModules/World/NPC" type="Library">
+      <Configuration name="Debug">
+        <Options>
+          <OutputPath>../../../../../bin/</OutputPath>
+        </Options>
+      </Configuration>
+      <Configuration name="Release">
+        <Options>
+          <OutputPath>../../../../../bin/</OutputPath>
+        </Options>
+      </Configuration>
+
+      <ReferencePath>../../../../../bin/</ReferencePath>
+      <Reference name="log4net" />
+      <Reference name="Mono.Addins" />
+      <Reference name="Nini" />
+      <Reference name="OpenMetaverse" />
+      <Reference name="OpenMetaverseTypes" />
+      <Reference name="OpenSim.Region.CoreModules"/>
+      <Reference name="OpenSim.Framework"/>
+      <Reference name="OpenSim.Region.Framework"/>
       <Files>
         <Match pattern="*.cs" recurse="false"/>
       </Files>
