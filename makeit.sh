@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 cd `dirname $0`
+if [ prebuildtomake.exe -ot prebuildtomake.cs ]
+then
+    mcs -debug -out:prebuildtomake.exe prebuildtomake.cs
+fi
 mono --debug prebuildtomake.exe > makefile
 make -f makefile MCS=mcs "$@"
 
