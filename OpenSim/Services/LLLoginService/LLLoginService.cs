@@ -28,6 +28,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
@@ -92,6 +93,10 @@ namespace OpenSim.Services.LLLoginService
         protected string m_DSTZone;
         protected bool m_allowDuplicatePresences = false;
 
+        private String m_LoginLogNameParam;
+        private String m_LoginLogNameCurrent;
+        private StreamWriter m_LoginLogWriter;
+
         IConfig m_LoginServerConfig;
 //        IConfig m_ClientsConfig;
 
@@ -128,6 +133,7 @@ namespace OpenSim.Services.LLLoginService
             m_ClassifiedFee = m_LoginServerConfig.GetString("ClassifiedFee", string.Empty);
             m_DestinationGuide = m_LoginServerConfig.GetString ("DestinationGuide", string.Empty);
             m_AvatarPicker = m_LoginServerConfig.GetString ("AvatarPicker", string.Empty);
+            m_LoginLogNameParam = m_LoginServerConfig.GetString ("LoginLogName", String.Empty);
 
             string[] possibleAccessControlConfigSections = new string[] { "AccessControl", "LoginService" };
             m_AllowedClients = Util.GetConfigVarFromSections<string>(
@@ -398,6 +404,27 @@ namespace OpenSim.Services.LLLoginService
                             return LLFailedLoginResponse.AlreadyLoggedInProblem;
                         }
                     }
+                }
+
+                // maybe write a log file record for this login
+                if (m_LoginLogNameParam != "") {
+                    string dt = DateTime.Now.ToString ("s");    // yyyy-mm-ddThh:mm:ss
+                    string dtymd = dt.Substring (0, 10);        // yyyy-mm-dd
+                    string dthms = dt.Substring (11);           // hh:mm:ss
+                    if ((m_LoginLogNameCurrent == null) || !m_LoginLogNameCurrent.EndsWith (dtymd)) {
+                        if (m_LoginLogWriter != null) {
+                            m_LoginLogWriter.Close ();
+                            m_LoginLogWriter = null;
+                        }
+                        m_LoginLogNameCurrent = m_LoginLogNameParam + dtymd;
+                        m_LoginLogWriter = File.AppendText (m_LoginLogNameCurrent);
+                    }
+                    m_LoginLogWriter.WriteLine (dthms +
+                            " uuid=" + account.PrincipalID +
+                            " ip=" + clientIP.Address.ToString() +
+                            " name=<" + firstName + " " + lastName + ">" +
+                            " email=<" + account.Email + ">");
+                    m_LoginLogWriter.Flush ();
                 }
 
                 //
