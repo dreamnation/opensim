@@ -3399,6 +3399,32 @@
       </Files>
     </Project>
 
+    <Project frameworkVersion="v4_0" name="OpenSim.Region.Optional.Modules.World.NPC" path="OpenSim/Region/OptionalModules/World/NPC" type="Library">
+      <Configuration name="Debug">
+        <Options>
+          <OutputPath>../../../../../bin/</OutputPath>
+        </Options>
+      </Configuration>
+      <Configuration name="Release">
+        <Options>
+          <OutputPath>../../../../../bin/</OutputPath>
+        </Options>
+      </Configuration>
+
+      <ReferencePath>../../../../../bin/</ReferencePath>
+      <Reference name="log4net" />
+      <Reference name="Mono.Addins" />
+      <Reference name="Nini" />
+      <Reference name="OpenMetaverse" />
+      <Reference name="OpenMetaverseTypes" />
+      <Reference name="OpenSim.Region.CoreModules"/>
+      <Reference name="OpenSim.Framework"/>
+      <Reference name="OpenSim.Region.Framework"/>
+      <Files>
+        <Match pattern="*.cs" recurse="false"/>
+      </Files>
+    </Project>
+
     <?include file="addon-modules/*/prebuild*.xml" ?>
 
   </Solution>
