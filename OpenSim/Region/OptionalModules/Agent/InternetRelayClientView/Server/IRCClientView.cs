@@ -654,6 +654,11 @@ namespace OpenSim.Region.OptionalModules.Agent.InternetRelayClientView.Server
             set { }
         }
 
+        public ITranslatorClient TranslatorClient
+        {
+            get { return null; }
+        }
+
         public uint CircuitCode
         {
             get { return (uint)Util.RandomClass.Next(0,int.MaxValue); }

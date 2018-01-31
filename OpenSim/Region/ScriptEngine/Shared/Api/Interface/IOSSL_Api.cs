@@ -506,5 +506,12 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api.Interfaces
 
         LSL_Integer osTeleportObject(LSL_Key objectUUID, vector targetPos, rotation targetrotation, LSL_Integer flags);
         LSL_Integer osGetLinkNumber(LSL_String name);
+
+        /// <summary>
+        /// Control translation of messages to/from script owner's client
+        /// See ITranslatorModule.ScriptControl() for details
+        /// </summary>
+        /// <returns>list</returns>
+        LSL_List osTranslatorControl (LSL_String cmd, LSL_List args);
     }
 }

@@ -390,6 +390,12 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         protected IAssetService m_assetService;
         private const bool m_checkPackets = true;
 
+        private const int PUBLIC_CHANNEL = 0;
+        private bool translatorModuleInitted;
+        private ITranslatorModule translatorModule;
+        private ITranslatorClient translatorClient;
+        private object translatorLock = new object ();
+
         #endregion Class Members
 
         #region Properties
@@ -479,6 +485,22 @@ namespace OpenSim.Region.ClientStack.LindenUDP
 
         public bool SendLogoutPacketWhenClosing { set { m_SendLogoutPacketWhenClosing = value; } }
 
+
+        public ITranslatorClient TranslatorClient
+        {
+            get {
+                lock (translatorLock) {
+                    if (!translatorModuleInitted) {
+                        translatorModuleInitted = true;
+                        translatorModule = Scene.RequestModuleInterface<ITranslatorModule> ();
+                        if (translatorModule != null) {
+                            translatorClient = translatorModule.ClientOpened (this);
+                        }
+                    }
+                }
+                return translatorClient;
+            }
+        }
 
         #endregion Properties
 
@@ -588,6 +610,11 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 OutPacket(disable, ThrottleOutPacketType.Unknown);
             }
 
+
+            // Shutdown the translator
+            if (translatorClient != null) {
+                translatorClient.ClientClosed ();
+            }
 
             // Fire the callback for this connection closing
             if (OnConnectionClosed != null)
@@ -906,7 +933,6 @@ namespace OpenSim.Region.ClientStack.LindenUDP
         {
             ChatFromSimulatorPacket reply = (ChatFromSimulatorPacket)PacketPool.Instance.GetPacket(PacketType.ChatFromSimulator);
             reply.ChatData.Audible = audible;
-            reply.ChatData.Message = Util.StringToBytes1024(message);
             reply.ChatData.ChatType = type;
             reply.ChatData.SourceType = source;
             reply.ChatData.Position = fromPos;
@@ -914,7 +940,31 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             reply.ChatData.OwnerID = ownerID;
             reply.ChatData.SourceID = fromAgentID;
 
-            OutPacket(reply, ThrottleOutPacketType.Unknown);
+            ChatToClient c2c = new ChatToClient ();
+            c2c.client = this;
+            c2c.reply  = reply;
+            ITranslatorClient xc = TranslatorClient;
+            if (xc == null) {
+                c2c.Finished (message);
+            } else {
+                xc.WhatevToClient (c2c.Finished, message);
+            }
+        }
+
+        private class ChatToClient {
+            public ChatFromSimulatorPacket reply;
+            public LLClientView client;
+
+            /**
+             * Translator has finished translating message to client's language, send it to client.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    reply.ChatData.Message = Util.StringToBytes1024 (message);
+                    client.OutPacket (reply, ThrottleOutPacketType.Unknown);
+                }
+            }
         }
 
         /// <summary>
@@ -944,10 +994,33 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 msg.MessageBlock.RegionID = new UUID(im.RegionID);
                 msg.MessageBlock.Timestamp = im.timestamp;
                 msg.MessageBlock.ToAgentID = new UUID(im.toAgentID);
-                msg.MessageBlock.Message = Util.StringToBytes1024(im.message);
                 msg.MessageBlock.BinaryBucket = im.binaryBucket;
 
-                OutPacket(msg, ThrottleOutPacketType.Task);
+                GimToClient g2c = new GimToClient ();
+                g2c.client = this;
+                g2c.msg    = msg;
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    g2c.Finished (im.message);
+                } else {
+                    xc.WhatevToClient (g2c.Finished, im.message);
+                }
+            }
+        }
+
+        private class GimToClient {
+            public ImprovedInstantMessagePacket msg;
+            public LLClientView client;
+
+            /**
+             * Translator has finished translating message to client's language, send it to client.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    msg.MessageBlock.Message = Util.StringToBytes1024 (message);
+                    client.OutPacket (msg, ThrottleOutPacketType.Task);
+                }
             }
         }
 
@@ -6731,11 +6804,33 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 args.Sender = this;
                 args.SenderUUID = this.AgentId;
 
-                ChatMessage handlerChatFromClient = OnChatFromClient;
-                if (handlerChatFromClient != null)
-                    handlerChatFromClient(this, args);
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    CallOnChatFromClient (args);
+                } else {
+                    ClientToChat c2c = new ClientToChat ();
+                    c2c.client = this;
+                    c2c.args   = args;
+                    xc.ClientToWhatev (c2c.Finished, args.Message, args.Channel);
+                }
             }
             return true;
+        }
+
+        private class ClientToChat {
+            public LLClientView client;
+            public OSChatMessage args;
+
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    args.Message = message;
+                    client.CallOnChatFromClient (args);
+                }
+            }
         }
 
         private bool HandlerAvatarPropertiesUpdate(IClientAPI sender, Packet Pack)
@@ -6798,12 +6893,20 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 args.Position = new Vector3();
                 args.Scene = Scene;
                 args.Sender = this;
-                ChatMessage handlerChatFromClient2 = OnChatFromClient;
-                if (handlerChatFromClient2 != null)
-                    handlerChatFromClient2(this, args);
+                CallOnChatFromClient(args);
             }
 
             return true;
+        }
+
+        /**
+         * Take a message just received from the client and spray it into the server.
+         */
+        private void CallOnChatFromClient(OSChatMessage args)
+        {
+            ChatMessage handlerChatFromClient2 = OnChatFromClient;
+            if (handlerChatFromClient2 != null)
+                handlerChatFromClient2(this, args);
         }
 
         private bool HandlerImprovedInstantMessage(IClientAPI sender, Packet Pack)
@@ -6838,10 +6941,37 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         msgpack.MessageBlock.BinaryBucket,
                         true);
 
-                handlerInstantMessage(this, im);
+                ITranslatorClient xc = TranslatorClient;
+                if (xc == null) {
+                    handlerInstantMessage(this, im);
+                } else {
+                    ClientToGim c2g = new ClientToGim ();
+                    c2g.client = this;
+                    c2g.im     = im;
+                    c2g.him    = handlerInstantMessage;
+                    xc.ClientToWhatev (c2g.Finished, IMmessage, PUBLIC_CHANNEL);
+                }
+
             }
             return true;
 
+        }
+
+        private class ClientToGim {
+            public GridInstantMessage im;
+            public ImprovedInstantMessage him;
+            public LLClientView client;
+
+            /**
+             * Translator has finished preparing message, spray it into the sim.
+             */
+            public void Finished (string message)
+            {
+                if (message != null) {
+                    im.message = message;
+                    him (client, im);
+                }
+            }
         }
 
         private bool HandlerAcceptFriendship(IClientAPI sender, Packet Pack)

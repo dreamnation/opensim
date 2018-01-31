@@ -252,6 +252,11 @@ namespace OpenSim.Region.OptionalModules.World.NPC
             set { }
         }
 
+        public ITranslatorClient TranslatorClient
+        {
+            get { return null; }
+        }
+
         #region Internal Functions
 
         private void SendOnChatFromClient(int channel, string message, ChatTypeEnum chatType)
