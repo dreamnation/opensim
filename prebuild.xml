@@ -1069,6 +1069,8 @@
       <Reference name="OpenMetaverse.StructuredData" path="../../../bin/"/>
       <Reference name="Nini" path="../../../bin/"/>
       <Reference name="log4net" path="../../../bin/"/>
+      <Reference name="MySql.Data" path="../../../bin/"/>
+      <Reference name="System.Data"/>
 
       <Files>
         <Match pattern="*.cs" recurse="true">

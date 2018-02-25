@@ -37,6 +37,7 @@ using System.Text.RegularExpressions;
 using log4net;
 using Nini.Config;
 using OpenMetaverse;
+using MySql.Data.MySqlClient;
 
 using OpenSim.Framework;
 using OpenSim.Framework.Console;
@@ -96,8 +97,7 @@ namespace OpenSim.Services.LLLoginService
         protected string m_messageKey;
 
         private String m_LoginLogNameParam;
-        private String m_LoginLogNameCurrent;
-        private StreamWriter m_LoginLogWriter;
+        private MySqlConnection m_LoginLogWriter;
 
         IConfig m_LoginServerConfig;
 //        IConfig m_ClientsConfig;
@@ -135,7 +135,12 @@ namespace OpenSim.Services.LLLoginService
             m_ClassifiedFee = m_LoginServerConfig.GetString("ClassifiedFee", string.Empty);
             m_DestinationGuide = m_LoginServerConfig.GetString ("DestinationGuide", string.Empty);
             m_AvatarPicker = m_LoginServerConfig.GetString ("AvatarPicker", string.Empty);
-            m_LoginLogNameParam = m_LoginServerConfig.GetString ("LoginLogName", String.Empty);
+
+            string loginLogConnection = m_LoginServerConfig.GetString ("LoginLogConnection", String.Empty);
+            if (loginLogConnection != "") {
+                m_LoginLogWriter = new MySqlConnection (loginLogConnection);
+                m_LoginLogWriter.Open ();
+            }
 
             string[] possibleAccessControlConfigSections = new string[] { "AccessControl", "LoginService" };
             m_AllowedClients = Util.GetConfigVarFromSections<string>(
@@ -426,24 +431,15 @@ namespace OpenSim.Services.LLLoginService
                 }
 
                 // maybe write a log file record for this login
-                if (m_LoginLogNameParam != "") {
-                    string dt = DateTime.Now.ToString ("s");    // yyyy-mm-ddThh:mm:ss
-                    string dtymd = dt.Substring (0, 10);        // yyyy-mm-dd
-                    string dthms = dt.Substring (11);           // hh:mm:ss
-                    if ((m_LoginLogNameCurrent == null) || !m_LoginLogNameCurrent.EndsWith (dtymd)) {
-                        if (m_LoginLogWriter != null) {
-                            m_LoginLogWriter.Close ();
-                            m_LoginLogWriter = null;
-                        }
-                        m_LoginLogNameCurrent = m_LoginLogNameParam + dtymd;
-                        m_LoginLogWriter = File.AppendText (m_LoginLogNameCurrent);
+                //   create table loginlog (id char(36) not null, ip varchar(32) not null, at integer unsigned not null)
+                if (m_LoginLogWriter != null) {
+                    using (MySqlCommand cmd = m_LoginLogWriter.CreateCommand ()) {
+                        cmd.CommandText = "INSERT INTO loginlog SET id=?id,ip=?ip,at=?at";
+                        cmd.Parameters.AddWithValue ("?id", account.PrincipalID);
+                        cmd.Parameters.AddWithValue ("?ip", clientIP.Address.ToString ());
+                        cmd.Parameters.AddWithValue ("?at", (uint) DateTime.UtcNow.Subtract (new DateTime (1970, 1, 1)).TotalSeconds);
+                        cmd.ExecuteNonQuery ();
                     }
-                    m_LoginLogWriter.WriteLine (dthms +
-                            " uuid=" + account.PrincipalID +
-                            " ip=" + clientIP.Address.ToString() +
-                            " name=<" + firstName + " " + lastName + ">" +
-                            " email=<" + account.Email + ">");
-                    m_LoginLogWriter.Flush ();
                 }
 
                 //
