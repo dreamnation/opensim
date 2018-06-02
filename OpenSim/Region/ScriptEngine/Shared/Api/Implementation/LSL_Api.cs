@@ -16565,10 +16565,13 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
         public LSL_String llJsonGetValue(LSL_String json, LSL_List specifiers)
         {
-            OSD o = OSDParser.DeserializeJson(json);
-            OSD specVal = JsonGetSpecific(o, specifiers, 0);
-
-            return specVal.AsString();
+            try {
+                OSD o = OSDParser.DeserializeJson(json);
+                OSD specVal = JsonGetSpecific(o, specifiers, 0);
+                return specVal.AsString();
+            } catch (Exception) {
+                return ScriptBaseClass.JSON_INVALID;
+            }
         }
 
         public LSL_List llJson2List(LSL_String json)
