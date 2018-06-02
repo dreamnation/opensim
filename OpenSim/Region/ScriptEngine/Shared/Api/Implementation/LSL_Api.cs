@@ -6848,21 +6848,23 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
             UUID key = new UUID();
             if (UUID.TryParse(id, out key))
             {
-                ScenePresence presence = World.GetScenePresence(key);
-                if (presence != null) // object is an avatar
-                {
-                    if (m_host.OwnerID == World.LandChannel.GetLandObject(presence.AbsolutePosition).LandData.OwnerID)
-                        return 1;
-                }
-                else // object is not an avatar
-                {
-                    SceneObjectPart obj = World.GetSceneObjectPart(key);
-
-                    if (obj != null)
+                try {
+                    ScenePresence presence = World.GetScenePresence(key);
+                    if (presence != null) // object is an avatar
                     {
+                        if (m_host.OwnerID == World.LandChannel.GetLandObject(presence.AbsolutePosition).LandData.OwnerID)
+                            return 1;
+                    }
+                    else // object is not an avatar
+                    {
+                        SceneObjectPart obj = World.GetSceneObjectPart(key);
                         if (m_host.OwnerID == World.LandChannel.GetLandObject(obj.AbsolutePosition).LandData.OwnerID)
                             return 1;
                     }
+                } catch (NullReferenceException) {
+                    // lots of places to get nulls
+                    // eg, presence.AbsolutePosition
+                    return 0;
                 }
             }
 
