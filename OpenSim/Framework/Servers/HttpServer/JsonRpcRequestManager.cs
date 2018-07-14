@@ -26,6 +26,7 @@
  */
 
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -95,6 +96,129 @@ namespace OpenSim.Framework.Servers.HttpServer
             {
                 m_log.Debug(string.Format("JsonRpc request '{0}' to {1} failed", method, uri), e);
                 return false;
+            }
+
+            // parse JSON separately from PostToService cuz libopenmetaverse OSDJson.cs messes up bigly
+            if (response.ContainsKey ("_RawResult")) {
+
+                // get raw string returned by webserver and
+                // see if it starts with '{' and ends with '}' indicating JSON
+                string raw = response["_RawResult"].ToString ().Trim ();
+                if (raw.StartsWith ("{") && raw.EndsWith ("}")) {
+                    m_log.Debug ("[JsonRpcRequestManager] JsonRpcRequest*: raw=<" + raw + ">");
+
+                    // all we need are the "key":primvalue phrases
+                    Dictionary<string,object> kvps = new Dictionary<string,object> ();
+                    int rawlen = raw.Length;
+                    string key = null;
+                    object val = null;
+                    for (int i = 0; i < rawlen; i ++) {
+                        char c = raw[i];
+                        switch (c) {
+
+                            // discard any key before these as the value isn't a primitive
+                            case '{':
+                            case '[': {
+                                key = null;
+                                val = null;
+                                break;
+                            }
+
+                            // quoted string key or primitive value
+                            case '"': {
+                                StringBuilder sb = new StringBuilder (rawlen - i);
+                                while (++ i < rawlen) {
+                                    c = raw[i];
+                                    if (c == '"') break;
+                                    if ((c == '\\') && (++ i < rawlen)) {
+                                        c = raw[i];
+                                        switch (c) {
+                                            case 'b': c = '\b'; break;
+                                            case 'n': c = '\n'; break;
+                                            case 'r': c = '\r'; break;
+                                            case 't': c = '\t'; break;
+                                        }
+                                    }
+                                    sb.Append (c);
+                                }
+                                val = sb.ToString ();
+                                break;
+                            }
+
+                            // value just before colon is a key as a string
+                            case ':': {
+                                key = (string) val;
+                                val = null;
+                                break;
+                            }
+
+                            // other primitive values: null, boolean, integer, double
+                            default: {
+                                if (c <= ' ') break;
+
+                                // find end of value, first of } ] , space
+                                int j = i;
+                                while (++ j < rawlen) {
+                                    c = raw[j];
+                                    if (c <= ' ') break;
+                                    if ((c == '}') || (c == ']') || (c == ',')) break;
+                                }
+
+                                // get value as a lower case string
+                                string rlc = raw.Substring (i, j - i).ToLowerInvariant ();
+
+                                // next through loop proceses the } ] , space
+                                i = -- j;
+
+                                // must be one of these
+                                double d;
+                                int k;
+                                     if (rlc == "null")  val = null;
+                                else if (rlc == "false") val = false;
+                                else if (rlc == "true")  val = true;
+                                else if (int.TryParse (rlc, out k)) val = k;
+                                else if (double.TryParse (rlc, out d)) val = d;
+                                else throw new ApplicationException ("bad json value " + rlc);
+                                break;
+                            }
+
+                            // these come after a possible primitive value
+                            case '}':
+                            case ']':
+                            case ',': {
+                                if (key != null) {
+                                    kvps[key.ToLowerInvariant()] = val;
+                                }
+                                key = null;
+                                val = null;
+                                break;
+                            }
+                        }
+                    }
+                    foreach (string kkk in kvps.Keys) {
+                        val = kvps[kkk];
+                        m_log.Debug ("[JsonRpcRequestManager] JsonRpcRequest*: kvps[" + kkk + "]=(" + val.GetType ().Name + ")" + val.ToString ());
+                    }
+
+                    // scan through all serializable fields of the given object
+                    Type t = parameters.GetType();
+                    FieldInfo[] fields = t.GetFields();
+                    for (int i = 0; i < fields.Length; i++) {
+                        FieldInfo field = fields[i];
+                        if (!Attribute.IsDefined (field, typeof (NonSerializedAttribute))) {
+
+                            // see if there is a like-named field present in the JSON string
+                            key = field.Name.ToLowerInvariant ();
+                            if (kvps.TryGetValue (key, out val)) {
+                                m_log.Debug ("[JsonRpcRequestManager] JsonRpcRequest*: " + field.FieldType.Name + " " + t.Name + "." + field.Name + "=" + val.ToString ());
+
+                                // store value in given object
+                                field.SetValue (parameters, val);
+                            }
+                        }
+                    }
+                    return true;
+                }
             }
 
             if (!response.ContainsKey("_Result"))
