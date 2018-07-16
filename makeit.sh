@@ -6,7 +6,7 @@ then
     mcs -debug -out:prebuildtomake.exe prebuildtomake.cs
 fi
 mono --debug prebuildtomake.exe > makefile
-make -f makefile MCS=mcs "$@"
+make -f makefile MCS=mcs -j8 "$@"
 
 function filternames
 {
