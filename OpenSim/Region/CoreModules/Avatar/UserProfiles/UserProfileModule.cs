@@ -149,7 +149,7 @@ namespace OpenSim.Region.CoreModules.Avatar.UserProfiles
 
             if (profileConfig == null)
             {
-                //m_log.Debug("[PROFILES]: UserProfiles disabled, no configuration");
+                m_log.Info ("[PROFILES]: UserProfiles disabled, no [UserProfiles]");
                 Enabled = false;
                 return;
             }
@@ -159,13 +159,14 @@ namespace OpenSim.Region.CoreModules.Avatar.UserProfiles
             ProfileServerUri = profileConfig.GetString("ProfileServiceURL", "");
             if (ProfileServerUri == "")
             {
+                m_log.Info ("[PROFILES]: UserProfiles disabled, no ProfileServiceURL");
                 Enabled = false;
                 return;
             }
 
             m_allowUserProfileWebURLs = profileConfig.GetBoolean("AllowUserProfileWebURLs", m_allowUserProfileWebURLs);
 
-            m_log.Debug("[PROFILES]: Full Profiles Enabled");
+            m_log.Info ("[PROFILES]: Full Profiles Enabled via " + ProfileServerUri);
             ReplaceableInterface = null;
             Enabled = true;
 

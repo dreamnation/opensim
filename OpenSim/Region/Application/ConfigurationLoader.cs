@@ -29,6 +29,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text;
 using System.Threading;
 using System.Xml;
 using log4net;
@@ -302,7 +303,25 @@ namespace OpenSim
             {
                 m_log.InfoFormat("[CONFIG]: Reading configuration file {0}", Path.GetFullPath(iniPath));
 
-                configSource.Source.Merge(new IniConfigSource(iniPath));
+                IniConfigSource cs = new IniConfigSource(iniPath);
+
+                /*
+                StringWriter sw = new StringWriter ();
+                cs.Save (sw);
+                string[] lines = sw.ToString ().Split (new char[] { '\n' });
+                StringBuilder sb = new StringBuilder ();
+                foreach (string line in lines) {
+                    string lin = line.Trim ();
+                    if ((lin != "") && !lin.StartsWith (";")) {
+                        if (!lin.StartsWith ("[")) sb.Append ("  ");
+                        sb.Append (lin);
+                        sb.Append ('\n');
+                    }
+                }
+                m_log.Info ("[CONFIG]: -\n" + sb.ToString ());
+                */
+
+                configSource.Source.Merge(cs);
                 success = true;
             }
             else
@@ -315,8 +334,14 @@ namespace OpenSim
                 {
                     XmlReader r = XmlReader.Create(iniPath);
                     XmlConfigSource cs = new XmlConfigSource(r);
-                    configSource.Source.Merge(cs);
 
+                    /*
+                    StringWriter sw = new StringWriter ();
+                    cs.Save (sw);
+                    m_log.Info ("[CONFIG]: -\n" + sw.ToString ());
+                    */
+
+                    configSource.Source.Merge(cs);
                     success = true;
                 }
                 catch (Exception e)
