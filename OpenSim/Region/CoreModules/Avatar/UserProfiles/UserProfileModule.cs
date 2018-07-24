@@ -1274,6 +1274,9 @@ namespace OpenSim.Region.CoreModules.Avatar.UserProfiles
             }
             pref = (UserPreferences) Pref;
 
+            m_log.Debug ("[UserProfileModule] UserPreferencesRequest*:" +
+                                " userid=" + pref.UserId + " imviaemail=" + pref.IMViaEmail +
+                                " visible=" + pref.Visible + " email=" + pref.EMail);
             remoteClient.SendUserInfoReply(pref.IMViaEmail, pref.Visible, pref.EMail);
 
         }

@@ -297,6 +297,7 @@ namespace OpenSim
         private bool ReadConfig(OpenSimConfigSource configSource, string iniPath)
         {
             bool success = false;
+            string cfn = Environment.GetEnvironmentVariable ("DUMP_CONFIG_FILE");
 
             if (!IsUri(iniPath))
             {
@@ -304,21 +305,25 @@ namespace OpenSim
 
                 IniConfigSource cs = new IniConfigSource(iniPath);
 
-                /*
-                StringWriter sw = new StringWriter ();
-                cs.Save (sw);
-                string[] lines = sw.ToString ().Split (new char[] { '\n' });
-                StringBuilder sb = new StringBuilder ();
-                foreach (string line in lines) {
-                    string lin = line.Trim ();
-                    if ((lin != "") && !lin.StartsWith (";")) {
-                        if (!lin.StartsWith ("[")) sb.Append ("  ");
-                        sb.Append (lin);
-                        sb.Append ('\n');
+                if ((cfn != null) && (cfn != "")) {
+                    StringWriter sw = new StringWriter ();
+                    cs.Save (sw);
+                    string[] lines = sw.ToString ().Split (new char[] { '\n' });
+                    StreamWriter cfw = new StreamWriter (cfn, true);
+                    try {
+                        cfw.WriteLine ("## " + Path.GetFullPath(iniPath));
+                        StringBuilder sb = new StringBuilder ();
+                        foreach (string line in lines) {
+                            string lin = line.Trim ();
+                            if ((lin != "") && !lin.StartsWith (";")) {
+                                if (!lin.StartsWith ("[")) cfw.Write ("  ");
+                                cfw.WriteLine (lin);
+                            }
+                        }
+                    } finally {
+                        cfw.Close ();
                     }
                 }
-                m_log.Info ("[CONFIG]: -\n" + sb.ToString ());
-                */
 
                 configSource.Source.Merge(cs);
                 success = true;
@@ -334,11 +339,16 @@ namespace OpenSim
                     XmlReader r = XmlReader.Create(iniPath);
                     XmlConfigSource cs = new XmlConfigSource(r);
 
-                    /*
-                    StringWriter sw = new StringWriter ();
-                    cs.Save (sw);
-                    m_log.Info ("[CONFIG]: -\n" + sw.ToString ());
-                    */
+                    if ((cfn != null) && (cfn != "")) {
+                        StreamWriter cfw = new StreamWriter (cfn, true);
+                        try {
+                            cfw.WriteLine ("## " + iniPath);
+                            cs.Save (cfw);
+                            cfw.WriteLine ("");
+                        } finally {
+                            cfw.Close ();
+                        }
+                    }
 
                     configSource.Source.Merge(cs);
                     success = true;

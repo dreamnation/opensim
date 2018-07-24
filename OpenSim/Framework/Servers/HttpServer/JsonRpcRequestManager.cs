@@ -78,6 +78,8 @@ namespace OpenSim.Framework.Servers.HttpServer
             if (parameters == null)
                 throw new ArgumentNullException("parameters");
 
+            m_log.Debug ("[JsonRpcRequestManager] JsonRpcRequest*: method=" + method + " uri=" + uri);
+
             if(string.IsNullOrWhiteSpace(uri))
                 return false;
 
