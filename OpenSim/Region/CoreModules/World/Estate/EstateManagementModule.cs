@@ -1356,30 +1356,32 @@ namespace OpenSim.Region.CoreModules.World.Estate
             if (terr != null)
             {
 //                m_log.Warn("[CLIENT]: Got Request to Send Terrain in region " + Scene.RegionInfo.RegionName);
-                if (File.Exists(Util.dataDir() + "/terrain.raw"))
-                {
-                    File.Delete(Util.dataDir() + "/terrain.raw");
-                }
-                terr.SaveToFile(Util.dataDir() + "/terrain.raw");
-
-                byte[] bdata;
-                using(FileStream input = new FileStream(Util.dataDir() + "/terrain.raw",FileMode.Open))
-                {
-                    bdata = new byte[input.Length];
-                    input.Read(bdata, 0, (int)input.Length);
-                }
-                if(bdata == null || bdata.Length == 0)
-                {
-                    remote_client.SendAlertMessage("Terrain error");
-                    return;
-                }
-
-                remote_client.SendAlertMessage("Terrain file written, starting download...");
                 string xfername = (UUID.Random()).ToString();
-                Scene.XferManager.AddNewFile(xfername, bdata);
+                string fn = Util.dataDir() + "/data/terrain." + xfername + ".raw";
+                try {
+                    File.Delete(fn);
+                    terr.SaveToFile(fn);
 
-                m_log.DebugFormat("[CLIENT]: Sending terrain for region {0} to {1}", Scene.Name, remote_client.Name);
-                remote_client.SendInitiateDownload(xfername, clientFileName);
+                    byte[] bdata;
+                    using(FileStream input = new FileStream(fn,FileMode.Open))
+                    {
+                        bdata = new byte[input.Length];
+                        input.Read(bdata, 0, (int)input.Length);
+                    }
+                    if(bdata == null || bdata.Length == 0)
+                    {
+                        remote_client.SendAlertMessage("Terrain error");
+                        return;
+                    }
+
+                    remote_client.SendAlertMessage("Terrain file written, starting download...");
+                    Scene.XferManager.AddNewFile(xfername, bdata);
+
+                    m_log.DebugFormat("[CLIENT]: Sending terrain for region {0} to {1}", Scene.Name, remote_client.Name);
+                    remote_client.SendInitiateDownload(xfername, clientFileName);
+                } finally {
+                    File.Delete(fn);
+                }
             }
         }
 
