@@ -50,6 +50,13 @@ public class PrebuildToMake {
             xmltext = xmltext.Substring (0, i) + subs + xmltext.Substring (j);
         }
 
+        // OpenSimProfile and OpenSimSearch have <?xml...?> tags and we
+        // can't have those embedded in xmltext (doc.LoadXml will puque)
+        for (int i; (i = xmltext.IndexOf ("<?xml")) >= 0;) {
+            int j = xmltext.IndexOf ("?>", i) + 2;
+            xmltext = xmltext.Substring (0, i) + xmltext.Substring (j);
+        }
+
         // parse the resulting XML document
         XmlDocument doc = new XmlDocument ();
         doc.LoadXml (xmltext);
