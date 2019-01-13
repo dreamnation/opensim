@@ -234,7 +234,7 @@ public class PrebuildToMake {
         foreach (Project project in projects.Values) {
             writeOut ("\n\trm -f " + project.output);
             writeOut ("\n\trm -f " + project.output + ".mdb");
-            writeOut ("\n\trm -f " + project.output);
+            writeOut ("\n\trm -f " + project.output + ".so");
         }
         writeOut ("\n\n");
 
