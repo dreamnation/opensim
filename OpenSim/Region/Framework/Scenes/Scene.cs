@@ -2224,13 +2224,6 @@ namespace OpenSim.Region.Framework.Scenes
         {
             m_sceneGridService.SetScene(this);
 
-            //// Unfortunately this needs to be here and it can't be async.
-            //// The map tile image is stored in RegionSettings, but it also needs to be
-            //// stored in the GridService, because that's what the world map module uses
-            //// to send the map image UUIDs (of other regions) to the viewer...
-            if (m_generateMaptiles)
-                RegenerateMaptile();
-
             GridRegion region = new GridRegion(RegionInfo);
             string error = GridService.RegisterRegion(RegionInfo.ScopeID, region);
             // m_log.DebugFormat("[SCENE]: RegisterRegionWithGrid. name={0},id={1},loc=<{2},{3}>,size=<{4},{5}>",
@@ -2241,6 +2234,15 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (error != String.Empty)
                 throw new Exception(error);
+
+            //// Unfortunately this must come after registering the region with the ROBUST
+            //// ...so the ROBUST has the database record for the region
+            //// Unfortunately this needs to be here and it can't be async.
+            //// The map tile image is stored in RegionSettings, but it also needs to be
+            //// stored in the GridService, because that's what the world map module uses
+            //// to send the map image UUIDs (of other regions) to the viewer...
+            if (m_generateMaptiles)
+                RegenerateMaptile();
         }
 
         #endregion
@@ -6020,8 +6022,6 @@ Environment.Exit(1);
 
         public void RegenerateMaptileAndReregister(object sender, ElapsedEventArgs e)
         {
-            RegenerateMaptile();
-
             // We need to propagate the new image UUID to the grid service
             // so that all simulators can retrieve it
             string error = GridService.RegisterRegion(RegionInfo.ScopeID, new GridRegion(RegionInfo));
@@ -6029,6 +6029,9 @@ Environment.Exit(1);
                 throw new Exception(error);
             if(m_generateMaptiles)
                 m_mapGenerationTimer.Start();
+
+            // now that region is registered, the ROBUST can accept the map tile
+            RegenerateMaptile();
         }
 
         /// <summary>
