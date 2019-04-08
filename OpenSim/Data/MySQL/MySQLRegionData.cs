@@ -30,6 +30,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.Reflection;
+using log4net;
 using MySql.Data.MySqlClient;
 using OpenMetaverse;
 using OpenSim.Framework;
@@ -40,6 +41,8 @@ namespace OpenSim.Data.MySQL
 {
     public class MySqlRegionData : MySqlFramework, IRegionData
     {
+        private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+
         private string m_Realm;
         private List<string> m_ColumnNames;
         //private string m_connectionString;
@@ -82,62 +85,33 @@ namespace OpenSim.Data.MySQL
 
         public RegionData Get(int posX, int posY, UUID scopeID)
         {
-/* fixed size regions
-            string command = "select * from `"+m_Realm+"` where locX = ?posX and locY = ?posY";
+            // extend database search for maximum region size area
+            string command = "select * from `" + m_Realm + "` where " +
+                    "?posX>=locX and ?posX<locX+sizeX and ?posY>=locY and ?posY<locY+sizeY";
             if (scopeID != UUID.Zero)
                 command += " and ScopeID = ?scopeID";
 
+            List<RegionData> ret;
             using (MySqlCommand cmd = new MySqlCommand(command))
             {
                 cmd.Parameters.AddWithValue("?posX", posX.ToString());
                 cmd.Parameters.AddWithValue("?posY", posY.ToString());
                 cmd.Parameters.AddWithValue("?scopeID", scopeID.ToString());
 
-                List<RegionData> ret = RunCommand(cmd);
-                if (ret.Count == 0)
-                    return null;
-
-                return ret[0];
-            }
-*/
-            // extend database search for maximum region size area
-            string command = "select * from `" + m_Realm + "` where locX between ?startX and ?endX and locY between ?startY and ?endY";
-            if (scopeID != UUID.Zero)
-                command += " and ScopeID = ?scopeID";
-
-            int startX = posX - (int)Constants.MaximumRegionSize;
-            int startY = posY - (int)Constants.MaximumRegionSize;
-            int endX = posX;
-            int endY = posY;
-
-            List<RegionData> ret;
-            using (MySqlCommand cmd = new MySqlCommand(command))
-            {
-                cmd.Parameters.AddWithValue("?startX", startX.ToString());
-                cmd.Parameters.AddWithValue("?startY", startY.ToString());
-                cmd.Parameters.AddWithValue("?endX", endX.ToString());
-                cmd.Parameters.AddWithValue("?endY", endY.ToString());
-                cmd.Parameters.AddWithValue("?scopeID", scopeID.ToString());
-
                 ret = RunCommand(cmd);
             }
 
-            if (ret.Count == 0)
+            if (ret.Count == 0) {
                 return null;
-
-            // find the first that contains pos
-            RegionData rg = null;
-            foreach (RegionData r in ret)
-            {
-                if (posX >= r.posX && posX < r.posX + r.sizeX
-                    && posY >= r.posY && posY < r.posY + r.sizeY)
-                {
-                    rg = r;
-                    break;
+            }
+            if (ret.Count > 1) {
+                m_log.Error ("[MySQLRegionData]: more than one region at " + posX + "," + posY);
+                foreach (RegionData r in ret) {
+                    m_log.Error ("[MySQLRegionData]: - " + r.RegionID + " " + r.RegionName);
                 }
             }
 
-            return rg;
+            return ret[0];
         }
 
         public RegionData Get(UUID regionID, UUID scopeID)
