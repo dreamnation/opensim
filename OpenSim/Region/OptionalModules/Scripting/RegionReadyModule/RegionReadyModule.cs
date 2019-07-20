@@ -225,8 +225,8 @@ namespace OpenSim.Region.OptionalModules.Scripting.RegionReady
             {
                 m_scene.LoginsEnabled = true;
 
-                // m_log.InfoFormat("[RegionReady]: Logins enabled for {0}, Oar {1}",
-                //                 m_scene.RegionInfo.RegionName, m_oarFileLoading.ToString());
+                m_log.InfoFormat("[RegionReady]: Logins enabled for {0}, Oar {1}",
+                                m_scene.RegionInfo.RegionName, m_oarFileLoading.ToString());
 
                 // Putting this out to console to make it eye-catching for people who are running OpenSimulator
                 // without info log messages enabled.  Making this a warning is arguably misleading since it isn't a
