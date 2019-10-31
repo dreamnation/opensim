@@ -126,6 +126,12 @@ namespace OpenSim.Region.CoreModules.Scripting.LSLHttp
             {
                 ExternalHostNameForLSL = config.Configs["Network"].GetString("ExternalHostNameForLSL", null);
 
+                if ((ExternalHostNameForLSL == null) || (ExternalHostNameForLSL == "*")) {
+                    ExternalHostNameForLSL = Dns.GetHostName ();
+                }
+
+                m_log.Info ("[URL MODULE]: ExternalHostNameForLSL " + ExternalHostNameForLSL);
+
                 bool ssl_enabled = config.Configs["Network"].GetBoolean("https_listener", false);
 
                 if (ssl_enabled)

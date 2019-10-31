@@ -6436,6 +6436,9 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 
                 case "simulator_hostname":
                     IUrlModule UrlModule = World.RequestModuleInterface<IUrlModule>();
+                    if (UrlModule.ExternalHostNameForLSL == null) {
+                        throw new Exception ("llGetEnv: simulator_hostname is null");
+                    }
                     return UrlModule.ExternalHostNameForLSL;
 
                 case "region_max_prims":
