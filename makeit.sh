@@ -5,8 +5,16 @@ if [ prebuildtomake.exe -ot prebuildtomake.cs ]
 then
     mcs -debug -out:prebuildtomake.exe prebuildtomake.cs
 fi
-mono --debug prebuildtomake.exe > makefile
-make -f makefile MCS=mcs -j8 "$@"
+mono --debug prebuildtomake.exe > makefile.tmp
+if make -f makefile.tmp MCS=mcs -j8 "$@"
+then
+    echo success
+    rc=0
+else
+    echo error
+    rc=1
+fi
+exit $rc
 
 function filternames
 {
