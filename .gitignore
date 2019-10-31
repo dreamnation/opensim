@@ -10,7 +10,10 @@
 *.pdb
 *.pidb
 *.dll.build
+*.dll.so
 *.dll
+*.exe
+*.exe.so
 *.log
 
 # Ignore .user and .suo files as these are user preference specific
@@ -39,6 +42,7 @@ bin/*.db
 bin/*.db-journal
 bin/addin-db-*
 bin/*.dll
+bin/OpenSim.log*
 bin/OpenSim.vshost.exe.config
 bin/OpenSim.32BitLaunch.vshost.exe.config
 bin/OpenSim.32BitLaunch.log
@@ -50,6 +54,7 @@ bin/ScriptEngines/*/*.dll
 bin/ScriptEngines/*/*.state
 bin/*.maddin
 bin/*.exe
+bin/*.exe.so
 bin/*.ini
 bin/j2kDecodeCache
 bin/Physics*
