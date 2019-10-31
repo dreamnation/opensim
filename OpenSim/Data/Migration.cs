@@ -75,9 +75,6 @@ namespace OpenSim.Data
         protected DbConnection _conn;
         protected Assembly _assem;
 
-        private Regex _match_old;
-        private Regex _match_new;
-
         /// <summary>Have the parameterless constructor just so we can specify it as a generic parameter with the new() constraint.
         /// Currently this is only used in the tests. A Migration instance created this way must be then
         /// initialized with Initialize(). Regular creation should be through the parameterized constructors.
@@ -107,12 +104,9 @@ namespace OpenSim.Data
         /// <param name="type"></param>
         public void Initialize (DbConnection conn, Assembly assem, string type, string subtype)
         {
-            _type = type;
-            _conn = conn;
+            _type  = type;
+            _conn  = conn;
             _assem = assem;
-            _match_old = new Regex(subtype + @"\.(\d\d\d)_" + _type + @"\.sql");
-            string s = String.IsNullOrEmpty(subtype) ? _type : _type + @"\." + subtype;
-            _match_new = new Regex(@"\." + s + @"\.migrations(?:\.(?<ver>\d+)$|.*)");
         }
 
         public void InitMigrationsTable()
@@ -144,6 +138,7 @@ namespace OpenSim.Data
                 cmd.CommandTimeout = 0;
                 foreach (string sql in script)
                 {
+                    m_log.Debug ("[Migration]: ExecuteScript*: sql=" + sql);
                     cmd.CommandText = sql;
                     try
                     {
@@ -179,8 +174,10 @@ namespace OpenSim.Data
             int version = FindVersion(_conn, _type);
 
             SortedList<int, string[]> migrations = GetMigrationsAfter(version);
-            if (migrations.Count < 1)
+            if (migrations.Count < 1) {
+                m_log.DebugFormat("[MIGRATIONS]: {0} data tables already up to date at revision {1}", _type, version);
                 return;
+            }
 
             // to prevent people from killing long migrations.
             m_log.InfoFormat("[MIGRATIONS]: Upgrading {0} to latest revision {1}.", _type, migrations.Keys[migrations.Count - 1]);
@@ -235,6 +232,7 @@ namespace OpenSim.Data
             }
         }
 
+        // get current version of given table
         protected virtual int FindVersion(DbConnection conn, string type)
         {
             int version = 0;
@@ -258,6 +256,7 @@ namespace OpenSim.Data
                     version = -1;
                 }
             }
+            m_log.Debug ("[Migrations]: FindVersion*: type=" + type + " version=" + version);
             return version;
         }
 
@@ -275,139 +274,87 @@ namespace OpenSim.Data
 
         private delegate void FlushProc();
 
-        /// <summary>Scans for migration resources in either old-style "scattered" (one file per version)
-        /// or new-style "integrated" format (single file with ":VERSION nnn" sections).
-        /// In the new-style migrations it also recognizes ':GO' separators for parts of the SQL script
-        /// that must be sent to the server separately.  The old-style migrations are loaded each in one piece
-        /// and don't support the ':GO' feature.
-        /// </summary>
-        /// <param name="after">The version we are currently at. Scan for any higher versions</param>
-        /// <returns>A list of string arrays, representing the scripts.</returns>
+        // get list of migrations for the current _type that are after the given version
+        //  output:
+        //   returns list of sql statements sorted by version number:
+        //    index = version, greater than supplied 'after'
+        //    value = array of SQL statements to upgrade to the given version
         private SortedList<int, string[]> GetMigrationsAfter(int after)
         {
-            SortedList<int, string[]> migrations = new SortedList<int, string[]>();
+            SortedList<int, string[]> migrations = new SortedList<int, string[]> ();
 
-            string[] names = _assem.GetManifestResourceNames();
-            if (names.Length == 0)     // should never happen
-                return migrations;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder(4096);
+            int nVersion = -1;
 
-            Array.Sort(names);  // we want all the migrations ordered
+            List<string> script = new List<string>();
 
-            int nLastVerFound = 0;
-            Match m = null;
-            string sFile = Array.FindLast(names, nm => { m = _match_new.Match(nm); return m.Success; });  // ; nm.StartsWith(sPrefix, StringComparison.InvariantCultureIgnoreCase
-
-            if ((m != null) && !String.IsNullOrEmpty(sFile))
+            FlushProc flush = delegate()
             {
-                /* The filename should be '<StoreName>.migrations[.NNN]' where NNN
-                 * is the last version number defined in the file. If the '.NNN' part is recognized, the code can skip
-                 * the file without looking inside if we have a higher version already. Without the suffix we read
-                 * the file anyway and use the version numbers inside.  Any unrecognized suffix (such as '.sql')
-                 * is valid but ignored.
-                 *
-                 *  NOTE that we expect only one 'merged' migration file. If there are several, we take the last one.
-                 *  If you are numbering them, leave only the latest one in the project or at least make sure they numbered
-                 *  to come up in the correct order (e.g. 'SomeStore.migrations.001' rather than 'SomeStore.migrations.1')
-                 */
-
-                if (m.Groups.Count > 1 && int.TryParse(m.Groups[1].Value, out nLastVerFound))
-                {
-                    if (nLastVerFound <= after)
-                        goto scan_old_style;
+                if (sb.Length > 0) {
+                    script.Add(sb.ToString());
+                    sb.Length = 0;
                 }
 
-                System.Text.StringBuilder sb = new System.Text.StringBuilder(4096);
-                int nVersion = -1;
+                if ((nVersion > 0) && (nVersion > after) && (script.Count > 0) && !migrations.ContainsKey(nVersion)) {
+                    migrations[nVersion] = script.ToArray();
+                }
+                script.Clear();
+            };
 
-                List<string> script = new List<string>();
-
-                FlushProc flush = delegate()
-                {
-                    if (sb.Length > 0)     // last SQL stmt to script list
-                    {
-                        script.Add(sb.ToString());
-                        sb.Length = 0;
-                    }
-
-                    if ((nVersion > 0) && (nVersion > after) && (script.Count > 0) && !migrations.ContainsKey(nVersion))   // script to the versioned script list
-                    {
-                        migrations[nVersion] = script.ToArray();
-                    }
-                    script.Clear();
-                };
-
-                using (Stream resource = _assem.GetManifestResourceStream(sFile))
+            string sFile = _type + ".migrations";
+            Stream resource = _assem.GetManifestResourceStream(sFile);
+            if (resource != null) {
                 using (StreamReader resourceReader = new StreamReader(resource))
                 {
                     int nLineNo = 0;
-                    while (!resourceReader.EndOfStream)
-                    {
-                        string sLine = resourceReader.ReadLine();
+                    for (string sLine; (sLine = resourceReader.ReadLine ()) != null;) {
                         nLineNo++;
 
-                        if (String.IsNullOrEmpty(sLine) || sLine.StartsWith("#"))  // ignore a comment or empty line
+                        string tLine = sLine.Trim ();
+
+                        // ignore a comment or empty line
+                        if (String.IsNullOrEmpty(tLine) || tLine.StartsWith("#"))
                             continue;
 
-                        if (sLine.Trim().Equals(":GO", StringComparison.InvariantCultureIgnoreCase))
+                        // ":GO" - marks end of SQL statement
+                        if (tLine.Equals(":GO", StringComparison.InvariantCultureIgnoreCase))
                         {
-                            if (sb.Length == 0) continue;
-                            if (nVersion > after)
-                                script.Add(sb.ToString());
-                            sb.Length = 0;
+                            if (sb.Length > 0) {
+                                if (nVersion > after) script.Add (sb.ToString ());
+                                sb.Length = 0;
+                            }
                             continue;
                         }
 
-                        if (sLine.StartsWith(":VERSION ", StringComparison.InvariantCultureIgnoreCase))  // ":VERSION nnn"
+                        // ":VERSION nnn" : ends previous version statement block if any
+                        //                  and starts this verion's statement block
+                        if (tLine.StartsWith(":VERSION ", StringComparison.InvariantCultureIgnoreCase))
                         {
+                            // flush out previous version statement block if any
                             flush();
 
-                            int n = sLine.IndexOf('#');     // Comment is allowed in version sections, ignored
+                            // Comment is allowed in version sections, ignored
+                            int n = tLine.IndexOf('#');
                             if (n >= 0)
-                                sLine = sLine.Substring(0, n);
+                                tLine = tLine.Substring(0, n);
 
-                            if (!int.TryParse(sLine.Substring(9).Trim(), out nVersion))
+                            // get new block version
+                            if (!int.TryParse(tLine.Substring(9).Trim(), out nVersion))
                             {
                                 m_log.ErrorFormat("[MIGRATIONS]: invalid version marker at {0}: line {1}. Migration failed!", sFile, nLineNo);
                                 break;
                             }
+                            continue;
                         }
-                        else
-                        {
-                            sb.AppendLine(sLine);
-                        }
+
+                        // must be a SQL statement so save it
+                        sb.AppendLine(sLine);
                     }
+
+                    // end of file, flush final verion statement block
                     flush();
-
-                    // If there are scattered migration files as well, only look for those with higher version numbers.
-                    if (after < nVersion)
-                        after = nVersion;
                 }
             }
-
-scan_old_style:
-            // scan "old style" migration pieces anyway, ignore any versions already filled from the single file
-            foreach (string s in names)
-            {
-                m = _match_old.Match(s);
-                if (m.Success)
-                {
-                    int version = int.Parse(m.Groups[1].ToString());
-                    if ((version > after) && !migrations.ContainsKey(version))
-                    {
-                        using (Stream resource = _assem.GetManifestResourceStream(s))
-                        {
-                            using (StreamReader resourceReader = new StreamReader(resource))
-                            {
-                                string sql = resourceReader.ReadToEnd();
-                                migrations.Add(version, new string[]{sql});
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (migrations.Count < 1)
-                m_log.DebugFormat("[MIGRATIONS]: {0} data tables already up to date at revision {1}", _type, after);
 
             return migrations;
         }
