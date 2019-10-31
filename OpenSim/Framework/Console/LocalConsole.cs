@@ -391,7 +391,12 @@ namespace OpenSim.Framework.Console
 
         public override void Output(string format, string level, params object[] components)
         {
-            string text = String.Format(format, components);
+            string text;
+            try {
+                text = String.Format(format, components);
+            } catch (FormatException fe) {
+                text = format;
+            }
 
             FireOnOutput(text);
 
