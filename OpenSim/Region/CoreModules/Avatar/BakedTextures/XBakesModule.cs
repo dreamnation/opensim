@@ -130,7 +130,8 @@ namespace OpenSim.Region.CoreModules.Avatar.BakedTextures
                                 string sTextureIndex = sr.GetAttribute("TextureIndex");
                                 int lTextureIndex = Convert.ToInt32(sTextureIndex);
                                 string sCacheId = sr.GetAttribute("CacheId");
-                                UUID.TryParse(sCacheId, out UUID lCacheId);
+                                UUID lCacheId;
+                                UUID.TryParse(sCacheId, out lCacheId);
 
                                 sr.ReadStartElement("BakedTexture");
                                 if (sr.Name == "AssetBase")
@@ -151,7 +152,8 @@ namespace OpenSim.Region.CoreModules.Avatar.BakedTextures
                                 string sTextureIndex = sr.GetAttribute("TextureIndex");
                                 int lTextureIndex = Convert.ToInt32(sTextureIndex);
                                 string sCacheId = sr.GetAttribute("CacheId");
-                                UUID.TryParse(sCacheId, out UUID lCacheId);
+                                UUID lCacheId;
+                                UUID.TryParse(sCacheId, out lCacheId);
 
                                 sr.ReadStartElement("BESetA");
                                 if (sr.Name == "AssetBase")

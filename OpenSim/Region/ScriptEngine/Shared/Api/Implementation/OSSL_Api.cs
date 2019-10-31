@@ -358,7 +358,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                 }
                 else
                 {
-                    if (bool.TryParse(ownerPerm, out bool allowed))
+                    bool allowed;
+                    if (bool.TryParse(ownerPerm, out allowed))
                     {
                         // Boolean given
                         if (allowed)
@@ -406,7 +407,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                                         break;
                                     default:
                                     {
-                                        if (UUID.TryParse(current, out UUID uuid))
+                                        UUID uuid;
+                                        if (UUID.TryParse(current, out uuid))
                                         {
                                             if (uuid != UUID.Zero)
                                             {
@@ -434,7 +436,8 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
                             foreach (string id in ids)
                             {
                                 string current = id.Trim();
-                                if (UUID.TryParse(current, out UUID uuid))
+                                UUID uuid;
+                                if (UUID.TryParse(current, out uuid))
                                 {
                                     if (uuid != UUID.Zero)
                                     {
