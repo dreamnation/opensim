@@ -112,13 +112,12 @@ namespace OpenSim.Tests
             // Prepare call to ConfigurationLoader.LoadConfigSettings()
             ConfigurationLoader cl = new ConfigurationLoader();
             IConfigSource argvSource = new IniConfigSource();
-            EnvConfigSource envConfigSource = new EnvConfigSource();
             argvSource.AddConfig("Startup").Set("inifile", mainIniFile);
             argvSource.AddConfig("Network");
             ConfigSettings configSettings;
             NetworkServersInfo networkInfo;
 
-            OpenSimConfigSource source = cl.LoadConfigSettings(argvSource, envConfigSource,
+            OpenSimConfigSource source = cl.LoadConfigSettings(argvSource,
                 out configSettings, out networkInfo);
 
             // Remove default config

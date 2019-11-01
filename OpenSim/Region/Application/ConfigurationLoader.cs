@@ -71,7 +71,7 @@ namespace OpenSim
         /// <param name="networkInfo"></param>
         /// <returns>A configuration that gets passed to modules</returns>
         public OpenSimConfigSource LoadConfigSettings(
-                IConfigSource argvSource, EnvConfigSource envConfigSource, out ConfigSettings configSettings,
+                IConfigSource argvSource, out ConfigSettings configSettings,
                 out NetworkServersInfo networkInfo)
         {
             m_configSettings = configSettings = new ConfigSettings();
@@ -205,10 +205,6 @@ namespace OpenSim
                 m_log.FatalFormat("[CONFIG]: Configuration exists, but there was an error loading it!");
                 Environment.Exit(1);
             }
-
-            // Merge OpSys env vars
-            m_log.Info("[CONFIG]: Loading environment variables for Config");
-            Util.MergeEnvironmentToConfig(m_config.Source);
 
             // Make sure command line options take precedence
             m_config.Source.Merge(argvSource);

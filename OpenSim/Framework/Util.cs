@@ -1468,28 +1468,6 @@ namespace OpenSim.Framework
             return (T)val;
         }
 
-        public static void MergeEnvironmentToConfig(IConfigSource ConfigSource)
-        {
-            IConfig enVars = ConfigSource.Configs["Environment"];
-            // if section does not exist then user isn't expecting them, so don't bother.
-            if( enVars != null )
-            {
-                // load the values from the environment
-                EnvConfigSource envConfigSource = new EnvConfigSource();
-                // add the requested keys
-                string[] env_keys = enVars.GetKeys();
-                foreach ( string key in env_keys )
-                {
-                    envConfigSource.AddEnv(key, string.Empty);
-                }
-                // load the values from environment
-                envConfigSource.LoadEnv();
-                // add them in to the master
-                ConfigSource.Merge(envConfigSource);
-                ConfigSource.ExpandKeyValues();
-            }
-        }
-
         public static T ReadSettingsFromIniFile<T>(IConfig config, T settingsClass)
         {
             Type settingsType = settingsClass.GetType();

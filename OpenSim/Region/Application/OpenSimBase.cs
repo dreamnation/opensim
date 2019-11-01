@@ -120,13 +120,6 @@ namespace OpenSim
         /// </value>
         public OpenSimConfigSource ConfigSource { get; private set; }
 
-        protected EnvConfigSource m_EnvConfigSource = new EnvConfigSource();
-
-        public EnvConfigSource envConfigSource
-        {
-            get { return m_EnvConfigSource; }
-        }
-
         public uint HttpServerPort
         {
             get { return m_httpServerPort; }
@@ -153,7 +146,7 @@ namespace OpenSim
         protected virtual void LoadConfigSettings(IConfigSource configSource)
         {
             m_configLoader = new ConfigurationLoader();
-            ConfigSource = m_configLoader.LoadConfigSettings(configSource, envConfigSource, out m_configSettings, out m_networkServersInfo);
+            ConfigSource = m_configLoader.LoadConfigSettings(configSource, out m_configSettings, out m_networkServersInfo);
             Config = ConfigSource.Source;
             ReadExtraConfigSettings();
         }
@@ -1029,7 +1022,7 @@ namespace OpenSim
                 regInfo.EstateSettings = EstateDataService.LoadEstateSettings(regInfo.RegionID, false);
 
             if (regInfo.EstateSettings.EstateID != 0)
-                return false;	// estate info in the database did not change
+                return false;   // estate info in the database did not change
 
             m_log.WarnFormat("[ESTATE] Region {0} is not part of an estate.", regInfo.RegionName);
 
@@ -1126,10 +1119,10 @@ namespace OpenSim
                         MainConsole.Instance.Output("Joining the estate failed. Please try again.");
                     }
                 }
-    	    }
+            }
 
-    	    return true;	// need to update the database
-    	}
+            return true;    // need to update the database
+        }
     }
 
     public class OpenSimConfigSource
