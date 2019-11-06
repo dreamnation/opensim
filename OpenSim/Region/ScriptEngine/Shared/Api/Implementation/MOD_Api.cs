@@ -173,8 +173,21 @@ namespace OpenSim.Region.ScriptEngine.Shared.Api
 //                ((MethodInfo)MethodBase.GetCurrentMethod()).ReturnType);
 
             Type returntype = m_comms.LookupReturnType(fname);
-            if (returntype != typeof(int))
-                MODError(String.Format("return type mismatch for {0}",fname));
+            if (returntype != typeof(int)) {
+                if (fname == "llAttachToAvatarTemp") {
+                    IScriptApi lslapi = m_ScriptEngine.GetApi (m_item.ItemID, "LSL");
+                    if (lslapi != null) {
+                        object apobj = parms[0];
+                        LSL_Integer apint = (apobj is int) ?
+                                (LSL_Integer) (int) apobj :
+                                (LSL_Integer) apobj;
+                        ((LSL_Api) lslapi).llAttachToAvatarTemp (apint);
+                        return new LSL_Integer (1);
+                    }
+                }
+                MODError(String.Format("return type mismatch for {0}, expect {1}, have {2}",
+                        fname, "int", ((returntype == null) ? "null" : returntype.ToString())));
+            }
 
             int result = (int)modInvoke(fname,parms);
             return new LSL_Integer(result);
